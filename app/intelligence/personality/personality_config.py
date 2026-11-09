@@ -39,14 +39,17 @@ class PersonalityConfig(BaseModel):
             else:
                 template = "Você é {name}, um assistente inteligente. Responda em {language} com tom {tone}."
 
-        rendered = template.format(
-            name=self.name,
-            language=self.language,
-            tone=self.tone,
-            scientific_rigor=self.scientific_rigor,
-            skepticism=self.skepticism,
-            verbosity=self.verbosity,
-        )
+        try:
+            rendered = template.format(
+                name=self.name,
+                language=self.language,
+                tone=self.tone,
+                scientific_rigor=self.scientific_rigor,
+                skepticism=self.skepticism,
+                verbosity=self.verbosity,
+            )
+        except (KeyError, ValueError, IndexError):
+            rendered = template
 
         if self.custom_instructions:
             rendered += f"\n\nInstruções Especiais:\n{self.custom_instructions}"

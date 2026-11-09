@@ -6,23 +6,24 @@ from app.models.message import ChatMessage, MessageRole
 
 
 def test_personality_config_render_defaults():
-    """Valida a renderização com os valores padrão da personalidade."""
+    """Valida a renderização com o template mestre configurado."""
     config = PersonalityConfig()
     prompt = config.render_system_prompt()
     assert "ULTRON" in prompt
-    assert "Português do Brasil" in prompt
-    assert "direto, analítico e técnico" in prompt
+    assert "Artificial Intelligence Personality & Behavioral Framework" in prompt
+    assert "Conhecimento acima de conveniência" in prompt
 
 
-def test_personality_config_custom_values():
-    """Valida a customização de atributos e instruções especiais."""
+def test_personality_config_custom_template():
+    """Valida a customização de atributos e instruções especiais em templates com variáveis."""
     config = PersonalityConfig(
         name="JARVIS",
         language="Inglês",
         tone="polido e formal",
         custom_instructions="Sempre cite fontes.",
     )
-    prompt = config.render_system_prompt()
+    custom_template = "Você é {name}. Idioma: {language}. Tom: {tone}."
+    prompt = config.render_system_prompt(template_content=custom_template)
     assert "JARVIS" in prompt
     assert "Inglês" in prompt
     assert "polido e formal" in prompt
