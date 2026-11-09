@@ -30,7 +30,7 @@ class GeminiProvider(LLMProvider):
     def __init__(
         self,
         api_key: str | None = None,
-        default_model: str = "gemini-2.5-flash",
+        default_model: str = "gemini-3.5-flash",
     ) -> None:
         self._api_key = api_key
         self._default_model = default_model

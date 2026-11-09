@@ -19,7 +19,7 @@ class ConversationModel(Base):
     title: Mapped[str] = mapped_column(String(255), default="Nova Conversa")
     system_override: Mapped[str | None] = mapped_column(Text, nullable=True)
     provider: Mapped[str] = mapped_column(String(50), default="gemini")
-    model: Mapped[str] = mapped_column(String(100), default="gemini-2.5-flash")
+    model: Mapped[str] = mapped_column(String(100), default="gemini-3.5-flash")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

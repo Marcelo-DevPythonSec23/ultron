@@ -29,7 +29,7 @@ class Settings(BaseSettings):
         default=None, description="Chave de API do Google Gemini (secreta)"
     )
     GEMINI_DEFAULT_MODEL: str = Field(
-        default="gemini-2.5-flash", description="Modelo padrão do Google Gemini"
+        default="gemini-3.5-flash", description="Modelo padrão do Google Gemini"
     )
 
     # Persistência de Dados

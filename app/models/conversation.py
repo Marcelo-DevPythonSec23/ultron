@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.message import LLMUsage, MessageRole
 
@@ -38,6 +38,14 @@ class ChatRequest(BaseModel):
         default=None,
         description="Sobrescrita opcional da personalidade/instruções de sistema.",
     )
+
+    @field_validator("message")
+    @classmethod
+    def validate_message_not_empty(cls, v: str) -> str:
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("A mensagem não pode conter apenas espaços em branco.")
+        return stripped
 
 
 class ChatResponse(BaseModel):

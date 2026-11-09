@@ -3,7 +3,7 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from app.api.routes.chat import router as chat_router
@@ -45,6 +45,30 @@ def create_app() -> FastAPI:
     # Registrar Roteadores
     application.include_router(health_router, prefix="/api/v1")
     application.include_router(chat_router, prefix="/api/v1")
+
+    # Tratamento de exceções HTTP da aplicação
+    @application.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, exc: HTTPException):
+        detail = exc.detail
+        if isinstance(detail, dict):
+            code = detail.get("code", "HTTP_ERROR")
+            message = detail.get("message", str(detail))
+            details = detail.get("details", None)
+        else:
+            code = "HTTP_ERROR"
+            message = str(detail)
+            details = None
+
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": {
+                    "code": code,
+                    "message": message,
+                    "details": details,
+                }
+            },
+        )
 
     # Tratamento global de exceções não capturadas
     @application.exception_handler(Exception)
