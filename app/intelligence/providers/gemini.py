@@ -94,22 +94,46 @@ class GeminiProvider(LLMProvider):
                 provider=self.provider_id,
             )
 
-        try:
-            response = await client.aio.models.generate_content(
-                model=target_model,
-                contents=contents,
-                config=config,
-            )
-        except errors.APIError as exc:
-            logger.error("Erro da API Gemini: código=%s, msg=%s", exc.code, str(exc))
-            self._handle_api_error(exc)
-        except Exception as exc:
-            logger.error("Falha inesperada ao comunicar com Gemini: %s", str(exc))
+        max_retries = 2
+        response = None
+        for attempt in range(max_retries + 1):
+            try:
+                response = await client.aio.models.generate_content(
+                    model=target_model,
+                    contents=contents,
+                    config=config,
+                )
+                break
+            except errors.APIError as exc:
+                if exc.code in (500, 502, 503, 504) and attempt < max_retries:
+                    logger.warning(
+                        "Spike transitório na API Gemini (código %s). Nova tentativa em %ds...",
+                        exc.code,
+                        (attempt + 1) * 2,
+                    )
+                    import asyncio
+                    await asyncio.sleep((attempt + 1) * 2)
+                    continue
+
+                logger.error("Erro da API Gemini: código=%s, msg=%s", exc.code, str(exc))
+                self._handle_api_error(exc)
+            except Exception as exc:
+                if attempt < max_retries:
+                    import asyncio
+                    await asyncio.sleep((attempt + 1) * 2)
+                    continue
+                logger.error("Falha inesperada ao comunicar com Gemini: %s", str(exc))
+                raise ProviderUnavailableError(
+                    f"Erro de comunicação com Gemini: {exc!s}",
+                    provider=self.provider_id,
+                    details=str(exc),
+                ) from exc
+
+        if response is None:
             raise ProviderUnavailableError(
-                f"Erro de comunicação com Gemini: {exc!s}",
+                "Não foi possível obter resposta do provedor Gemini após retentativas.",
                 provider=self.provider_id,
-                details=str(exc),
-            ) from exc
+            )
 
         # Extrair texto retornado
         content_text = response.text or ""
