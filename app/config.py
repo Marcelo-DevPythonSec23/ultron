@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     APP_ENV: Literal["development", "test", "production"] = Field(
         default="development", description="Ambiente de execução"
     )
+    DEBUG: bool = Field(default=False, description="Habilita detalhes técnicos na CLI")
     LOG_LEVEL: str = Field(default="INFO", description="Nível de log (DEBUG, INFO, WARNING, ERROR)")
 
     # Servidor HTTP

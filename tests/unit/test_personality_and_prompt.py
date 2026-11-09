@@ -10,8 +10,11 @@ def test_personality_config_render_defaults():
     config = PersonalityConfig()
     prompt = config.render_system_prompt()
     assert "ULTRON" in prompt
-    assert "Artificial Intelligence Personality & Behavioral Framework" in prompt
+    assert "AUTONOMIA INTELECTUAL" in prompt
     assert "Conhecimento acima de conveniência" in prompt
+    assert "sem facilitar abuso, intrusão ou dano real" in prompt
+    assert "personalidade vilanesca, arrogante, fria, cínica e mordaz" in prompt
+    assert "Dirija provocações ao interlocutor" in prompt
 
 
 def test_personality_config_custom_template():

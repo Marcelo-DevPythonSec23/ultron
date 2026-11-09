@@ -1,6 +1,7 @@
 """Provedor simulado (Mock) para testes automatizados e ambientes offline."""
 
 import logging
+from collections.abc import AsyncGenerator, Callable
 
 from app.intelligence.providers.base import (
     LLMProvider,
@@ -86,6 +87,28 @@ class MockProvider(LLMProvider):
             ),
             raw_metadata={"mock": True, "invocation": self.invocation_count},
         )
+
+    async def generate_stream(
+        self, request: LLMRequest
+    ) -> AsyncGenerator[str, None]:
+        """Gera resposta simulada transmitida em pedaços (streaming)."""
+        response = await self.generate_response(request)
+        words = response.content.split(" ")
+        for i, word in enumerate(words):
+            yield word + (" " if i < len(words) - 1 else "")
+
+    async def generate_response_streaming(
+        self,
+        request: LLMRequest,
+        on_chunk: Callable[[str], None],
+    ) -> LLMResponse:
+        """Transmite a resposta mock e preserva suas métricas."""
+        response = await self.generate_response(request)
+        words = response.content.split(" ")
+        for i, word in enumerate(words):
+            chunk = word + (" " if i < len(words) - 1 else "")
+            on_chunk(chunk)
+        return response
 
     async def health_check(self) -> bool:
         """Sempre retorna True a menos que simulate_error seja 'unavailable'."""

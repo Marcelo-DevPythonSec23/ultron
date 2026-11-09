@@ -32,6 +32,19 @@ cp .env.example .env
 uvicorn app.main:app --reload --port 8000
 ```
 
+### Conversar pelo terminal
+```bash
+.venv/bin/python chat_cli.py
+```
+
+A CLI exibe o estado de inicialização, o provedor e modelo configurados, separa as
+mensagens do usuário das respostas do ULTRON e transmite respostas progressivamente
+quando o provedor oferece suporte. As respostas são renderizadas com formatação
+Markdown no terminal. Use `sair`, `exit` ou `quit` para encerrar.
+Erros são classificados e mostrados sem payloads técnicos no modo normal. Use
+`--debug` para obter detalhes sanitizados; os registros estruturados são gravados
+em `logs/ultron.log` e `logs/errors.log`.
+
 ### Executar Testes
 ```bash
 pytest

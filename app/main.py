@@ -19,7 +19,10 @@ logger = logging.getLogger("ultron.main")
 async def lifespan(app: FastAPI):
     """Gerencia o ciclo de vida da aplicação (inicialização e encerramento)."""
     settings = get_settings()
-    setup_logging(settings.LOG_LEVEL)
+    setup_logging(
+        settings.LOG_LEVEL,
+        secrets=[settings.get_gemini_api_key()],
+    )
     logger.info("Iniciando %s no ambiente '%s'...", settings.APP_NAME, settings.APP_ENV)
 
     # Inicializar banco de dados e tabelas

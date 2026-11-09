@@ -6,9 +6,13 @@ import pytest
 from google.genai import errors
 
 from app.intelligence.providers.base import (
+    LLMException,
+    ProviderAccessDeniedError,
     ProviderAuthenticationError,
     ProviderInvalidRequestError,
+    ProviderNotFoundError,
     ProviderRateLimitError,
+    ProviderResponseError,
     ProviderUnavailableError,
 )
 from app.intelligence.providers.gemini import GeminiProvider
@@ -66,6 +70,39 @@ async def test_gemini_provider_success():
 
 
 @pytest.mark.asyncio
+async def test_gemini_provider_streaming_response_preserves_chunks_and_usage():
+    """Valida o streaming real do Gemini e as métricas da resposta final."""
+    provider = GeminiProvider(api_key="fake-key", default_model="gemini-2.5-flash")
+    usage = MagicMock(
+        prompt_token_count=12,
+        candidates_token_count=8,
+        total_token_count=20,
+    )
+
+    async def response_chunks():
+        yield MagicMock(text="Resposta ", usage_metadata=None)
+        yield MagicMock(text="progressiva.", usage_metadata=usage)
+
+    provider._client = MagicMock()
+    provider._client.aio.models.generate_content_stream = AsyncMock(
+        return_value=response_chunks()
+    )
+    request = LLMRequest(
+        messages=[ChatMessage(role=MessageRole.USER, content="Olá")],
+    )
+    chunks: list[str] = []
+
+    response = await provider.generate_response_streaming(request, chunks.append)
+
+    assert chunks == ["Resposta ", "progressiva."]
+    assert response.content == "Resposta progressiva."
+    assert response.usage.prompt_tokens == 12
+    assert response.usage.completion_tokens == 8
+    assert response.usage.total_tokens == 20
+    provider._client.aio.models.generate_content_stream.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_gemini_provider_error_normalization():
     """Valida a normalização de erros nativos da API do Gemini."""
     provider = GeminiProvider(api_key="fake-key")
@@ -93,3 +130,85 @@ async def test_gemini_provider_error_normalization():
     )
     with pytest.raises(ProviderUnavailableError):
         await provider.generate_response(req)
+
+
+@pytest.mark.parametrize(
+    ("status", "message", "exception_type"),
+    [
+        (401, "API_KEY_INVALID", ProviderAuthenticationError),
+        (403, "PERMISSION_DENIED", ProviderAccessDeniedError),
+        (404, "NOT_FOUND", ProviderNotFoundError),
+        (429, "RESOURCE_EXHAUSTED", ProviderRateLimitError),
+        (500, "INTERNAL", LLMException),
+        (503, "UNAVAILABLE", ProviderUnavailableError),
+    ],
+)
+def test_gemini_maps_http_errors_without_exposing_provider_payload(
+    status,
+    message,
+    exception_type,
+):
+    provider = GeminiProvider(api_key="private-api-key")
+
+    with pytest.raises(exception_type) as exc_info:
+        provider._handle_api_error(
+            errors.APIError(
+                status,
+                f'{{"status":"{message}","api_key":"private-api-key"}}',
+            )
+        )
+
+    assert exc_info.value.http_status == status
+    assert "private-api-key" not in exc_info.value.message
+    assert message not in exc_info.value.message
+    assert "private-api-key" not in (exc_info.value.details or "")
+    assert "[MASCARADO]" in (exc_info.value.details or "")
+
+
+def test_gemini_extracts_retry_delay_from_sdk_error_metadata():
+    provider = GeminiProvider(api_key="fake-key")
+
+    with pytest.raises(ProviderRateLimitError) as exc_info:
+        provider._handle_api_error(
+            errors.APIError(
+                429,
+                '{"message":"GenerateRequestsPerDay exceeded",'
+                '"details":[{"retryDelay":"90s"}]}',
+            )
+        )
+
+    assert exc_info.value.retry_after_seconds == 90
+    assert "GenerateRequestsPerDay" in exc_info.value.details
+
+
+@pytest.mark.asyncio
+async def test_gemini_does_not_retry_rate_limit_response():
+    provider = GeminiProvider(api_key="fake-key")
+    provider._client = MagicMock()
+    request = LLMRequest(
+        messages=[ChatMessage(role=MessageRole.USER, content="quota test")]
+    )
+    provider._client.aio.models.generate_content = AsyncMock(
+        side_effect=errors.APIError(
+            429,
+            '{"error":{"status":"RESOURCE_EXHAUSTED","api_key":"private-value"}}',
+        )
+    )
+
+    with pytest.raises(ProviderRateLimitError):
+        await provider.generate_response(request)
+
+    provider._client.aio.models.generate_content.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_gemini_rejects_malformed_response_safely():
+    provider = GeminiProvider(api_key="fake-key")
+    provider._client = MagicMock()
+    provider._client.aio.models.generate_content = AsyncMock(return_value=None)
+    request = LLMRequest(
+        messages=[ChatMessage(role=MessageRole.USER, content="invalid response")]
+    )
+
+    with pytest.raises(ProviderResponseError):
+        await provider.generate_response(request)

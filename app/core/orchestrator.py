@@ -1,6 +1,7 @@
 """Orquestrador do ciclo completo de processamento de mensagens no ULTRON."""
 
 import logging
+from collections.abc import Callable
 
 from app.core.chat_service import ChatService
 from app.core.context_manager import ContextManager
@@ -27,7 +28,11 @@ class Orchestrator:
         self.prompt_engine = prompt_engine
         self.provider_registry = provider_registry
 
-    async def process_chat(self, request: ChatRequest) -> ChatResponse:
+    async def process_chat(
+        self,
+        request: ChatRequest,
+        on_chunk: Callable[[str], None] | None = None,
+    ) -> ChatResponse:
         """Processa a mensagem do usuário ponta a ponta e retorna a resposta do assistente."""
         # 1. Determinar provedor e modelo
         target_provider_id = request.provider or self.provider_registry.default_provider_id
@@ -80,7 +85,12 @@ class Orchestrator:
             target_model,
             conversation_id,
         )
-        llm_response = await provider.generate_response(llm_request)
+        if on_chunk:
+            llm_response = await provider.generate_response_streaming(
+                llm_request, on_chunk
+            )
+        else:
+            llm_response = await provider.generate_response(llm_request)
 
         # 8. Persistir a resposta gerada pelo assistente
         assistant_msg_record = await self.chat_service.record_assistant_message(
