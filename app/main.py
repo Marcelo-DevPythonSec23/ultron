@@ -6,8 +6,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from app.api.routes.chat import router as chat_router
 from app.api.routes.health import router as health_router
 from app.config import get_settings
+from app.database.connection import init_db
 from app.utils.logging import setup_logging
 
 logger = logging.getLogger("ultron.main")
@@ -19,6 +21,10 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     setup_logging(settings.LOG_LEVEL)
     logger.info("Iniciando %s no ambiente '%s'...", settings.APP_NAME, settings.APP_ENV)
+
+    # Inicializar banco de dados e tabelas
+    await init_db()
+
     yield
     logger.info("Encerrando %s com segurança...", settings.APP_NAME)
 
@@ -38,6 +44,7 @@ def create_app() -> FastAPI:
 
     # Registrar Roteadores
     application.include_router(health_router, prefix="/api/v1")
+    application.include_router(chat_router, prefix="/api/v1")
 
     # Tratamento global de exceções não capturadas
     @application.exception_handler(Exception)
