@@ -1,8 +1,24 @@
-numpy>=1.26
-sounddevice>=0.4.6
+# Dependências do ULTRON 2.0 (terceira estrutura; lain/ e Mark-LVI-main/
+# são importados via sys.path e NÃO são instalados a partir daqui).
+#
+# Instalação (venv dedicado, decisão nº 5 da auditoria):
+#   uv venv .venv --python 3.12
+#   uv pip install --python .venv/bin/python -r requirements.txt
+#   uv pip install --python .venv/bin/python pytest pytest-asyncio
+
+# Núcleo lain (app.*): FastAPI + SQLAlchemy async + settings
+fastapi>=0.115
+sqlalchemy>=2.0
+aiosqlite>=0.20
 pydantic>=2.0
 pydantic-settings>=2.0
 python-dotenv>=1.0
 
-# Optional dependencies from the original projects remain external to this adapter layer.
-# They are loaded lazily only when the corresponding runtime is enabled.
+# Provedor gemini do lain — pin decidido na auditoria (decisão nº 1):
+# google-genai 3.0.0; o pin <3 do Mark-LVI não se aplica porque o Mark-LVI
+# não é executado pelo ULTRON 2.0 (só suas actions são importadas).
+google-genai>=3.0.0,<4
+
+# Actions do Mark-LVI no subset curado (system_status, web_search)
+psutil>=5.9
+ddgs>=9,<10
