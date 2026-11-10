@@ -72,6 +72,7 @@ class UltronCoreRuntime:
         self.orchestrator = None
         self.registry = None
         self.gateway = None
+        self.memory = None
         self._engine = None
         self._session_factory = None
         self._session = None
@@ -138,10 +139,16 @@ class UltronCoreRuntime:
         # providers, porque o ToolCallingProvider precisa dele.
         if self._enable_tools:
             from .marklvi_actions import build_gateway
+            from .memory_tools import register_memory_tools
 
             self.gateway = build_gateway(self._project_root)
+            # Memória de fatos é do ULTRON (Etapa 4): explícita, sem gravação
+            # automática, em arquivo próprio do 2.0 (nunca o long_term.json
+            # do Mark-LVI).
+            self.memory = register_memory_tools(self.gateway)
         else:
             self.gateway = None
+            self.memory = None
 
         default_provider = self._requested_default_provider or (
             "mock" if not self.settings.get_gemini_api_key() else "gemini"
