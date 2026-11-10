@@ -2,9 +2,10 @@
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from app.api.routes.chat import router as chat_router
 from app.api.routes.health import router as health_router
@@ -13,6 +14,7 @@ from app.database.connection import init_db
 from app.utils.logging import setup_logging
 
 logger = logging.getLogger("ultron.main")
+FRONTEND_PATH = Path(__file__).parent / "static" / "index.html"
 
 
 @asynccontextmanager
@@ -48,6 +50,11 @@ def create_app() -> FastAPI:
     # Registrar Roteadores
     application.include_router(health_router, prefix="/api/v1")
     application.include_router(chat_router, prefix="/api/v1")
+
+    @application.get("/", include_in_schema=False)
+    async def serve_frontend() -> FileResponse:
+        """Serve the local ULTRON web interface from the same origin as the API."""
+        return FileResponse(FRONTEND_PATH, media_type="text/html")
 
     # Tratamento de exceções HTTP da aplicação
     @application.exception_handler(HTTPException)

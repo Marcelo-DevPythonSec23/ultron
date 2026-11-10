@@ -29,8 +29,12 @@ cp .env.example .env
 
 ### Executar a Aplicação
 ```bash
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
+
+Abra `http://127.0.0.1:8000/` para usar a interface web local. Ela é servida
+pelo próprio FastAPI e envia as mensagens a `/api/v1/chat`, mantendo o mesmo
+identificador de conversa entre mensagens. Não é necessário configurar CORS.
 
 ### Conversar pelo terminal
 ```bash

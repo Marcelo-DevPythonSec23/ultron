@@ -103,6 +103,18 @@ async def test_chat_api_create_and_continue_conversation(app_with_test_db: Async
 
 
 @pytest.mark.asyncio
+async def test_frontend_is_served_from_same_origin(app_with_test_db: AsyncClient):
+    """Valida que a UI local é servida pelo backend que recebe as mensagens."""
+    response = await app_with_test_db.get("/")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "ULTRON" in response.text
+    assert "DEFAULT_EP='/api/v1/chat'" in response.text
+    assert "conversation_id:chat.serverId||null" in response.text
+
+
+@pytest.mark.asyncio
 async def test_chat_api_validation_error(app_with_test_db: AsyncClient):
     """Valida rejeição de mensagens vazias com 422."""
     client = app_with_test_db
