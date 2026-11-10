@@ -98,6 +98,10 @@ def main(argv: list[str] | None = None) -> int:
         help="executa uma demonstração não-interativa e sai",
     )
     parser.add_argument(
+        "--voice", action="store_true",
+        help="inicia a interface de voz (STT Gemini Live + TTS) em vez do REPL",
+    )
+    parser.add_argument(
         "--message", default=None,
         help="envia uma única mensagem e sai (modo one-shot)",
     )
@@ -115,6 +119,23 @@ def main(argv: list[str] | None = None) -> int:
         level=logging.DEBUG if args.verbose else logging.WARNING,
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
     )
+
+    if args.voice:
+        # A voz é outra interface para o MESMO núcleo: delega ao runner e
+        # repassa apenas opções de núcleo (sem duplicar a lógica de conversa).
+        from .voice.runner import main as voice_main
+
+        voice_argv: list[str] = []
+        for flag, value in (
+            ("--provider", args.provider),
+            ("--database", args.database),
+            ("--project-root", args.project_root),
+        ):
+            if value:
+                voice_argv.extend([flag, value])
+        if args.verbose:
+            voice_argv.append("--verbose")
+        return voice_main(voice_argv)
 
     bridge = OrchestratorBridge(
         project_root=args.project_root,

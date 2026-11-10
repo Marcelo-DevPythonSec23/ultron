@@ -191,6 +191,11 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         print("\n[encerrado]")
         return 0
+    except Exception as exc:  # falha controlada: a voz não derruba o núcleo
+        logger.exception("falha na camada de voz")
+        print(f"\n[falha de voz] {type(exc).__name__}: {exc}", file=sys.stderr)
+        print("  o núcleo e o histórico continuam intactos.", file=sys.stderr)
+        return 3
     finally:
         bridge.stop()
 
