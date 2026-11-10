@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ULTRON 2.0</title>
+<style>
+  /* Tokens de identidade — um lugar só (master prompt §10). */
+  :root {
+    --bg: #070708;
+    --bg-2: #0d0d10;
+    --panel: rgba(20, 20, 25, 0.78);
+    --graphite: #24242b;
+    --line: rgba(255, 47, 61, 0.20);
+    --red: #b3121a;
+    --red-bright: #ff2f3d;
+    --red-glow: rgba(255, 47, 61, 0.35);
+    --text: #e8e6e3;
+    --muted: #8b8b95;
+    --ok: #35d07f;
+    --warn: #ffb020;
+    --err: #ff5a66;
+    --radius: 10px;
+    --mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(1200px 700px at 70% -10%, rgba(179, 18, 26, 0.20), transparent 60%),
+      radial-gradient(900px 600px at 0% 110%, rgba(179, 18, 26, 0.12), transparent 55%),
+      linear-gradient(160deg, var(--bg), var(--bg-2));
+    min-height: 100vh;
+  }
+  /* Scanlines holográficas discretas. */
+  body::after {
+    content: "";
+    position: fixed; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom, rgba(255,255,255,0.018) 0 1px, transparent 1px 3px
+    );
+    mix-blend-mode: overlay;
+  }
+  header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 18px 26px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(90deg, rgba(179,18,26,0.14), transparent 45%);
+  }
+  .brand {
+    font-weight: 800; letter-spacing: 0.22em; font-size: 1.05rem;
+    color: var(--text);
+    text-shadow: 0 0 18px var(--red-glow);
+  }
+  .brand span { color: var(--red-bright); }
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--muted); box-shadow: 0 0 0 0 transparent;
+    transition: background .2s, box-shadow .2s;
+  }
+  .dot.ready { background: var(--ok); box-shadow: 0 0 12px var(--ok); }
+  .dot.busy { background: var(--warn); box-shadow: 0 0 12px var(--warn); }
+  .dot.error { background: var(--err); box-shadow: 0 0 12px var(--err); }
+  .muted { color: var(--muted); }
+  .mono { font-family: var(--mono); }
+  header .spacer { flex: 1; }
+
+  main {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 18px;
+    padding: 18px 26px 28px;
+    max-width: 1400px; margin: 0 auto;
+  }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    backdrop-filter: blur(8px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .panel h2 {
+    margin: 0; padding: 12px 16px;
+    font-size: 0.72rem; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--red-bright);
+    border-bottom: 1px solid var(--line);
+  }
+  .panel .body { padding: 14px 16px; }
+
+  .kv { display: grid; grid-template-columns: 92px 1fr; gap: 6px 10px; font-size: 0.85rem; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; word-break: break-word; }
+
+  .tool {
+    padding: 10px 0; border-bottom: 1px dashed rgba(255,255,255,0.07);
+    font-size: 0.82rem;
+  }
+  .tool:last-child { border-bottom: 0; }
+  .tool .name { color: var(--text); font-weight: 600; font-family: var(--mono); }
+  .tool .desc { color: var(--muted); margin-top: 3px; line-height: 1.35; }
+  .tag {
+    display: inline-block; padding: 1px 7px; margin-right: 4px;
+    border: 1px solid var(--line); border-radius: 999px;
+    font-size: 0.68rem; color: var(--muted); font-family: var(--mono);
+  }
+  .tag.warn { color: var(--warn); border-color: rgba(255,176,32,0.35); }
+  .tag.ok { color: var(--ok); border-color: rgba(53,208,127,0.35); }
+
+  .chat { display: flex; flex-direction: column; min-height: 74vh; }
+  #messages {
+    flex: 1; overflow-y: auto; padding: 16px;
+    display: flex; flex-direction: column; gap: 12px;
+    max-height: 62vh;
+  }
+  .msg {
+    max-width: 86%; padding: 10px 13px; border-radius: 10px;
+    line-height: 1.5; font-size: 0.92rem; white-space: pre-wrap;
+    border: 1px solid transparent;
+  }
+  .msg.user {
+    align-self: flex-end; background: rgba(179,18,26,0.16);
+    border-color: rgba(255,47,61,0.25);
+  }
+  .msg.assistant {
+    align-self: flex-start; background: rgba(255,255,255,0.035);
+    border-color: rgba(255,255,255,0.07);
+  }
+  .msg .meta {
+    margin-top: 6px; font-size: 0.68rem; color: var(--muted);
+    font-family: var(--mono);
+  }
+  .msg .calls { margin-top: 6px; }
+  .msg .calls .tag { font-size: 0.64rem; }
+
+  .composer {
+    display: flex; gap: 10px; padding: 14px 16px;
+    border-top: 1px solid var(--line);
+  }
+  .composer input {
+    flex: 1; background: rgba(0,0,0,0.35); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 11px 13px; font-size: 0.95rem; outline: none;
+  }
+  .composer input:focus { border-color: var(--red-bright); box-shadow: 0 0 0 3px rgba(255,47,61,0.10); }
+  button {
+    background: linear-gradient(180deg, rgba(255,47,61,0.22), rgba(179,18,26,0.28));
+    color: var(--text); border: 1px solid rgba(255,47,61,0.38);
+    border-radius: 8px; padding: 10px 16px; font-weight: 600;
+    cursor: pointer; letter-spacing: 0.04em;
+  }
+  button:hover { border-color: var(--red-bright); box-shadow: 0 0 16px var(--red-glow); }
+  button:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+  button.ghost { background: transparent; border-color: var(--line); font-weight: 500; }
+  select {
+    background: rgba(0,0,0,0.35); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px;
+  }
+  #banner {
+    display: none; margin: 0 26px; padding: 10px 14px;
+    border: 1px solid rgba(255,90,102,0.4); border-radius: 8px;
+    background: rgba(255,90,102,0.10); color: var(--err);
+    font-size: 0.85rem; font-family: var(--mono);
+  }
+  footer { padding: 0 26px 24px; color: var(--muted); font-size: 0.72rem; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <span class="dot" id="health"></span>
+  <div class="brand">ULTRON <span>2.0</span></div>
+  <div class="muted mono" id="provider-default">—</div>
+  <div class="spacer"></div>
+  <div class="muted mono" id="uptime">—</div>
+</header>
+
+<div id="banner"></div>
+
+<main>
+  <section class="panel">
+    <h2>Estado do sistema</h2>
+    <div class="body">
+      <dl class="kv">
+        <dt>Núcleo</dt><dd id="st-ready">—</dd>
+        <dt>Provider</dt><dd id="st-provider">—</dd>
+        <dt>Providers</dt><dd id="st-providers">—</dd>
+        <dt>Ferramentas</dt><dd id="st-tools">—</dd>
+        <dt>Conversa</dt><dd id="st-conversation" class="mono">—</dd>
+        <dt>Banco</dt><dd id="st-db" class="mono">—</dd>
+        <dt>Memória</dt><dd id="st-memory" class="mono">—</dd>
+        <dt>Microfone</dt><dd id="st-mic">—</dd>
+        <dt>Alto-falante</dt><dd id="st-speaker">—</dd>
+      </dl>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Ferramentas registradas</h2>
+    <div class="body" id="tools"><span class="muted">carregando…</span></div>
+  </section>
+
+  <section class="panel chat">
+    <h2>Conversa</h2>
+    <div id="messages"></div>
+    <div class="composer">
+      <select id="provider-select" title="Provider do próximo turno">
+        <option value="">padrão</option>
+      </select>
+      <input id="input" placeholder="fale com o ULTRON…" autocomplete="off">
+      <button id="send">Enviar</button>
+      <button id="new" class="ghost" title="Encerra a conversa atual; o histórico permanece no banco">Nova</button>
+    </div>
+  </section>
+</main>
+
+<footer>
+  Interface local · o núcleo ULTRON é a única autoridade de conversa e memória ·
+  a voz roda em <span class="mono">python -m ultron_2_0.voice</span>
+</footer>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const health = $("health");
+  const banner = $("banner");
+  let busy = false;
+
+  function showError(message) {
+    banner.textContent = message;
+    banner.style.display = "block";
+    health.className = "dot error";
+  }
+  function clearError() { banner.style.display = "none"; }
+
+  async function api(path, options = {}) {
+    const response = await fetch(path, {
+      headers: { "Content-Type": "application/json" },
+      ...options,
+    });
+    if (!response.ok) {
+      let detail = response.statusText;
+      try { detail = (await response.json()).detail || detail; } catch (_) {}
+      throw new Error(`${response.status}: ${detail}`);
+    }
+    return response.json();
+  }
+
+  function setText(id, value) { $(id).textContent = value ?? "—"; }
+
+  async function loadStatus() {
+    try {
+      const status = await api("/api/status");
+      setText("st-ready", status.ready ? "pronto" : "não iniciado");
+      setText("st-provider", status.default_provider);
+      setText("st-providers", (status.providers || []).join(", "));
+      setText("st-tools", String((status.tools || []).length));
+      setText("st-conversation", status.conversation_id || "(nova no próximo turno)");
+      setText("st-db", status.database);
+      setText("st-memory", status.memory || "(desligada)");
+      setText("st-mic", status.audio?.microphone || "(indisponível)");
+      setText("st-speaker", status.audio?.speaker || "(indisponível)");
+      setText("provider-default", status.default_provider || "—");
+      setText("uptime", `${status.web_uptime_seconds ?? 0}s no ar`);
+
+      const select = $("provider-select");
+      const current = select.value;
+      const wanted = ["", ...(status.providers || [])];
+      const have = Array.from(select.options).map((o) => o.value);
+      if (wanted.join("|") !== have.join("|")) {
+        select.innerHTML = "";
+        for (const provider of wanted) {
+          const option = document.createElement("option");
+          option.value = provider;
+          option.textContent = provider || "padrão";
+          select.appendChild(option);
+        }
+      }
+      select.value = wanted.includes(current) ? current : "";
+
+      if (!busy) health.className = status.ready ? "dot ready" : "dot error";
+      clearError();
+    } catch (error) {
+      showError(`status indisponível — ${error.message}`);
+    }
+  }
+
+  async function loadTools() {
+    try {
+      const { tools } = await api("/api/tools");
+      const container = $("tools");
+      if (!tools.length) {
+        container.innerHTML = '<span class="muted">nenhuma ferramenta registrada</span>';
+        return;
+      }
+      container.innerHTML = "";
+      for (const tool of tools) {
+        const block = document.createElement("div");
+        block.className = "tool";
+        const tags = [];
+        if (tool.requires_confirmation) tags.push('<span class="tag warn">confirmação</span>');
+        if (tool.timeout_seconds) tags.push(`<span class="tag">${tool.timeout_seconds}s</span>`);
+        for (const permission of tool.permissions || []) {
+          tags.push(`<span class="tag">${permission}</span>`);
+        }
+        block.innerHTML = `
+          <div class="name">${tool.name}(${(tool.required || []).join(", ")})</div>
+          <div class="desc">${tool.description}</div>
+          <div style="margin-top:6px">${tags.join("")}</div>`;
+        container.appendChild(block);
+      }
+    } catch (error) {
+      $("tools").innerHTML = `<span class="muted">falha ao listar: ${error.message}</span>`;
+    }
+  }
+
+  function toolBadges(calls) {
+    if (!calls || !calls.length) return "";
+    const items = calls.map((call) =>
+      `<span class="tag ${call.ok ? "ok" : "warn"}">${call.tool}${call.ok ? "" : " · falhou"}</span>`
+    ).join("");
+    return `<div class="calls">${items}</div>`;
+  }
+
+  async function loadHistory() {
+    try {
+      const { messages } = await api("/api/history");
+      const container = $("messages");
+      container.innerHTML = "";
+      if (!messages.length) {
+        container.innerHTML = '<span class="muted">sem mensagens nesta conversa ainda.</span>';
+        return;
+      }
+      for (const message of messages) {
+        const node = document.createElement("div");
+        node.className = `msg ${message.role === "user" ? "user" : "assistant"}`;
+        node.textContent = message.content;
+        if (message.role !== "user") {
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent = [message.provider, message.model].filter(Boolean).join(" · ");
+          if (meta.textContent) node.appendChild(meta);
+        }
+        const badges = toolBadges(message.tool_calls);
+        if (badges) {
+          const wrap = document.createElement("div");
+          wrap.innerHTML = badges;
+          node.appendChild(wrap.firstChild);
+        }
+        container.appendChild(node);
+      }
+      container.scrollTop = container.scrollHeight;
+    } catch (error) {
+      showError(`histórico indisponível — ${error.message}`);
+    }
+  }
+
+  async function send() {
+    const input = $("input");
+    const message = input.value.trim();
+    if (!message || busy) return;
+    busy = true;
+    clearError();
+    health.className = "dot busy";
+    $("send").disabled = true;
+    input.value = "";
+
+    const pending = document.createElement("div");
+    pending.className = "msg user";
+    pending.textContent = message;
+    $("messages").appendChild(pending);
+    $("messages").scrollTop = $("messages").scrollHeight;
+
+    try {
+      const provider = $("provider-select").value || null;
+      await api("/api/chat", {
+        method: "POST",
+        body: JSON.stringify({ message, provider }),
+      });
+      await loadHistory();
+      await loadStatus();
+    } catch (error) {
+      showError(`falha no turno — ${error.message}`);
+    } finally {
+      busy = false;
+      $("send").disabled = false;
+      health.className = "dot ready";
+      input.focus();
+    }
+  }
+
+  async function newConversation() {
+    try {
+      await api("/api/new", { method: "POST" });
+      await loadHistory();
+      await loadStatus();
+    } catch (error) {
+      showError(`falha ao abrir conversa — ${error.message}`);
+    }
+  }
+
+  $("send").addEventListener("click", send);
+  $("new").addEventListener("click", newConversation);
+  $("input").addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); }
+  });
+
+  loadStatus();
+  loadTools();
+  loadHistory();
+  setInterval(loadStatus, 5000);
+})();
+</script>
+</body>
+</html>

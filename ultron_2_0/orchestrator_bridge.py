@@ -14,6 +14,7 @@ Estado de interface mantido aqui (apenas o que é da interface, não do núcleo)
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -82,6 +83,43 @@ class OrchestratorBridge:
     def conversation_id(self) -> str | None:
         return self._conversation_id
 
+    def history(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Histórico persistido da conversa corrente (lido no loop do núcleo).
+
+        A sessão de banco pertence ao event loop dedicado do runtime; ler de
+        outro loop (uvicorn, por exemplo) seria inseguro. Por isso a leitura
+        passa por `run_coro`, nunca pela sessão diretamente.
+        """
+        if self.runtime.orchestrator is None or self._conversation_id is None:
+            return []
+        conversation_id = self._conversation_id
+
+        async def _load():
+            return await self.runtime.orchestrator.chat_service.msg_repo.get_messages_by_conversation(
+                conversation_id=conversation_id, limit=limit
+            )
+
+        rows = self.runtime.run_coro(_load())
+        return [self._message_item(row) for row in rows]
+
+    @staticmethod
+    def _message_item(row) -> dict[str, Any]:
+        tool_calls: list[dict[str, Any]] = []
+        if row.raw_metadata:
+            try:
+                tool_calls = json.loads(row.raw_metadata).get("tool_calls", []) or []
+            except (ValueError, TypeError):
+                tool_calls = []
+        return {
+            "id": row.id,
+            "role": row.role,
+            "content": row.content,
+            "provider": row.provider,
+            "model": row.model,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "tool_calls": tool_calls,
+        }
+
     # -- diagnóstico ----------------------------------------------------------
     def status(self) -> dict[str, Any]:
         """Estado REAL do sistema (nada simulado)."""
@@ -98,4 +136,5 @@ class OrchestratorBridge:
             "tools": runtime.gateway.names() if runtime.gateway else [],
             "conversation_id": self._conversation_id,
             "database": _mask_db_url(runtime.settings.DATABASE_URL),
+            "memory": str(runtime.memory.path) if runtime.memory else None,
         }

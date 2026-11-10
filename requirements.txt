@@ -22,3 +22,6 @@ google-genai>=3.0.0,<4
 # Actions do Mark-LVI no subset curado (system_status, web_search)
 psutil>=5.9
 ddgs>=9,<10
+
+# HUD web (Etapa 5) — servidor ASGI já usado pelo lain
+uvicorn>=0.30

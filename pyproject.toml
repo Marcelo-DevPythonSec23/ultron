@@ -21,6 +21,8 @@ dependencies = [
   # Actions do Mark-LVI no subset curado
   "psutil>=5.9",
   "ddgs>=9,<10",
+  # HUD web (Etapa 5): uvicorn já é a base do lain; não adiciona stack nova
+  "uvicorn>=0.30",
 ]
 
 [project.optional-dependencies]
@@ -29,8 +31,12 @@ dev = [
   "pytest-asyncio>=1.0",
 ]
 
-[tool.setuptools]
-packages = ["ultron_2_0"]
+[tool.setuptools.packages.find]
+include = ["ultron_2_0*"]
+
+[tool.setuptools.package-data]
+# O HUD lê o HTML direto do pacote (sem Jinja2, sem CDN).
+"ultron_2_0.web" = ["static/*.html"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
