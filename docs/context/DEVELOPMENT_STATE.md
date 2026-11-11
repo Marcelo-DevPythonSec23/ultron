@@ -70,13 +70,13 @@ ultron-2.0/ultron_2_0/
 | 0 — Reavaliação | `IMPLEMENTED` | `docs/roadmap/ULTRON_21_ASSESSMENT.md`, baseline 109+64 |
 | 1 — Documentação/Git | `IMPLEMENTED` | repositório da raiz `3fb03bb`, índice unificado, 0 links quebrados |
 | 2 — Autorização interativa | `IMPLEMENTED` | `authorization.py` + CLI `[s/N]` + HUD `/api/approvals`; 128 testes verdes |
-| 2.5 — Interface (`INTERFACE.md`) | `IMPLEMENTED` | auditoria + HUD reconstruído (`docs/ui/`), 21 testes de HUD, 136 verdes |
+| 2.5 — Interface (`INTERFACE.md`) | `IMPLEMENTED` | HUD web (`docs/ui/`, 21 testes) + interface desktop PySide6 (`ultron_2_0/interface/`, `tests/test_interface.py`, 12 testes), modo offscreen funcional |
 | 3 — Model Router | `IMPLEMENTED` | `ultron_2_0/routing/`, `tests/test_routing.py` (41), modo `auto`, fallback opt-in |
 | 4 — Multiagente | `IMPLEMENTED` | `ultron_2_0/agents/`, `tests/test_agents.py` (19), 6 agentes iniciais, integrado ao runtime |
 | 5 — CLI/MCP | `IMPLEMENTED` | `ultron_2_0/integrations/`, `tests/test_integrations.py` (19), OpenCode + MCP, integrado ao runtime |
 | 6 — Evolução da memória | `IMPLEMENTED` | `memory_semantic.py`, `memory_backup.py`, `memory_encryption.py`, `memory_engine.py` (métodos Fase 6), `tests/test_memory_phase6.py` (16) |
 | 7 — Autonomia operacional | `IMPLEMENTED` | `ultron_2_0/autonomy/`, `tests/test_autonomy.py` (21), planner/decomposer/engine/state/scheduler/recovery, integrado ao runtime |
-| 8 — Validação/estabilização | `IMPLEMENTED` | `docs/roadmap/ULTRON_21_FINAL_REPORT.md`, 252 testes 2.0 + 64 regressão lain |
+| 8 — Validação/estabilização | `IMPLEMENTED` | `docs/roadmap/ULTRON_21_FINAL_REPORT.md`, 264 testes 2.0 + 64 regressão lain |
 
 ## 4. Testes existentes
 
@@ -101,7 +101,8 @@ ultron-2.0/ultron_2_0/
 | `test_integrations.py` | 19 | Integrações externas (Fase 5): build_command OpenCode, parse de saída JSON/texto, sanitização de segredos, integração desabilitada, comando não encontrado, timeout, registro/habilitar/desabilitar, orquestrador (tarefa, não registrada, desabilitada), status sem credenciais, integração runtime/bridge |
 | `test_memory_phase6.py` | 16 | Evolução da Memória (Fase 6): compatibilidade memória existente, índice semântico opcional (fallback sem embeddings), busca semântica/híbrida, backup/restauração round-trip, criptografia opcional (sem dependência), generate_key_file |
 | `test_autonomy.py` | 21 | Autonomia Operacional (Fase 7): decomposicao deterministica, planner, workflow engine (execucao, limites de tempo/passos, recuperacao), state tracker (persistencia), scheduler, recovery manager |
-| **Total** | **252** | |
+| `test_interface.py` | 12 | Interface desktop (Fase 2.5): importacao dos modulos, tema de identidade visual, event system, aplicacao/bridge adapter, janela principal, mudanca de estado do avatar, envio de mensagem do chat, sanitizacao de segredos |
+| **Total** | **264** | |
 
 Regressão do núcleo: **64** testes em `lain/`.
 

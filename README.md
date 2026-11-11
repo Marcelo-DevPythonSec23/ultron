@@ -107,6 +107,17 @@ A voz reusa o mesmo núcleo (`OrchestratorBridge.process_text`).
 ./.venv/bin/python -m ultron_2_0.web             # http://127.0.0.1:8765
 ```
 
+### Interface desktop (PySide6)
+
+```bash
+./.venv/bin/python -m ultron_2_0.interface
+```
+
+Interface desktop completa com avatar holográfico, chat integrado ao núcleo,
+painéis de sistema e tarefas, controles de voz e diagnóstico. Requer
+`PySide6` (adicionado aos requisitos). Funciona em modo offscreen para
+desenvolvimento sem display gráfico.
+
 O HUD mostra estado real (providers, ferramentas, banco, memória, áudio), conversa persistida e execução de ferramentas. Bind padrão local.
 
 ---
