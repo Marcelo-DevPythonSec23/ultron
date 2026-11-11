@@ -35,6 +35,11 @@ logger = logging.getLogger("ultron2.voice.tts")
 
 TTS_MODEL_DEFAULT = "gemini-2.5-flash-preview-tts"
 TTS_VOICE_DEFAULT = "Kore"
+# O SDK google-genai 3.0.0 usa api_version="v1" por padrão. O campo
+# `generation_config.speechConfig` (TTS) só existe em v1beta: em v1 a API
+# responde 400 INVALID_ARGUMENT "Unknown name speechConfig".
+# Evidência: docs/TESTING.md, validação ao vivo de 2026-11-10.
+TTS_API_VERSION = "v1beta"
 
 _RATE_RE = re.compile(r"rate=(\d+)", re.IGNORECASE)
 
@@ -98,7 +103,10 @@ class GeminiTTS:
 
     def _ensure_client(self) -> "genai.Client":
         if self._client is None:
-            self._client = genai.Client(api_key=self._api_key)
+            self._client = genai.Client(
+                api_key=self._api_key,
+                http_options={"api_version": TTS_API_VERSION},
+            )
         return self._client
 
     async def synthesize(self, text: str) -> tuple[bytes, int]:

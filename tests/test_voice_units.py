@@ -143,6 +143,24 @@ def test_tts_config_usa_audio_e_voz_pre_construida():
     assert config.speech_config.voice_config.prebuilt_voice_config.voice_name == "Puck"
 
 
+def test_tts_cria_cliente_em_v1beta(monkeypatch):
+    """Regressão: speechConfig não existe em v1 (400 INVALID_ARGUMENT)."""
+    import ultron_2_0.voice.tts as tts_module
+
+    captured: dict = {}
+
+    def fake_client(**kwargs):
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(tts_module.genai, "Client", fake_client)
+    tts = GeminiTTS("chave-falsa")
+    tts._ensure_client()
+
+    assert captured["http_options"] == {"api_version": "v1beta"}
+    assert tts_module.TTS_API_VERSION == "v1beta"
+
+
 def test_parse_mime_rate_nao_adivinha():
     assert parse_mime_rate("audio/L16;codec=pcm;rate=24000") == 24000
     assert parse_mime_rate("audio/L16;codec=pcm;rate=16000") == 16000
