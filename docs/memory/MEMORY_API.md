@@ -106,7 +106,9 @@ forget(key, category="notes") -> dict
 ```
 
 `remember` usa `source="tool:remember"`/`trust="user_stated"`; `recall` é leitura;
-`forget` resolve `(global, category, key)` e chama `delete(authorized=True)`.
+`forget` procura `(category, key)` nos escopos de leitura (`global` +
+`user:default`) e chama `delete(authorized=True)`. O gateway só o executa após
+autorização de uso único da interface (CLI/HUD).
 
 ### Ciclo de vida e observabilidade
 

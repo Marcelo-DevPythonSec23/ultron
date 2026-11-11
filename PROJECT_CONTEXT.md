@@ -89,7 +89,7 @@ Componentes reais (detalhes em `docs/context/MODULE_MAP.md`):
 | STT Gemini Live (só transcrição) | `IMPLEMENTED` (requer chave/rede/microfone) | `test_voice_pipeline.py`, `test_voice_units.py` |
 | TTS Gemini / voz do sistema | `IMPLEMENTED` (validado ao vivo) | `docs/TESTING.md` |
 | Voz reusando o mesmo núcleo | `IMPLEMENTED` | `test_voice_pipeline.py`, `test_faults.py` |
-| HUD web local | `IMPLEMENTED` | `test_web.py` (11) |
+| HUD web local | `IMPLEMENTED` | `test_web.py` (13) |
 | Recuperação de falhas | `IMPLEMENTED` | `test_faults.py` (10) |
 | Wake word / VAD / barge-in | `PLANNED` (não existe) | — |
 | Confirmação interativa de ações destrutivas | `PLANNED` (gate recusa) | `test_memory_tools.py` |
@@ -117,7 +117,7 @@ Componentes reais (detalhes em `docs/context/MODULE_MAP.md`):
 
 ```bash
 cd ultron-2.0
-./.venv/bin/python -m pytest -q                    # 109 testes do 2.0
+./.venv/bin/python -m pytest -q                    # 128 testes do 2.0
 cd ../lain && ./.venv/bin/python -m pytest -q      # 64 testes de regressão
 ./.venv/bin/python -m ultron_2_0 --demo            # estado + ferramentas
 ```

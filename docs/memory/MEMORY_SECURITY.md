@@ -40,13 +40,16 @@ A memória **não** adquire autoridade de instrução por estar armazenada.
 `forget` é uma tool destrutiva:
 
 - contrato com `requires_confirmation=True`;
-- o `ToolGateway` recusa enquanto não existe interface de confirmação;
+- o `ToolGateway` pede autorização ao `AuthorizationManager` (Fase 2);
+  sem manager, recusa; por voz, sempre recusa;
+- a aprovação vem da CLI/HUD e produz token de uso único vinculado a
+  ferramenta + argumentos, com expiração e proteção contra replay;
 - quando chamado internamente pelo engine, `delete` exige `authorized=True`
   explícito e registra auditoria.
 
-Consequência atual: **`forget` pela interface é sempre recusado**. É o
-comportamento seguro enquanto não há fluxo de confirmação validado
-(`test_memory_engine.py::test_ferramentas_de_memoria_operam_pelo_motor`).
+Consequência atual: **`forget` só executa após aprovação explícita da
+interface**; recusar/expirar não apaga nada
+(`test_integration_tools.py`, `test_authorization.py`).
 
 ## 4. Isolamento
 
@@ -87,7 +90,8 @@ comportamento seguro enquanto não há fluxo de confirmação validado
 | Prompt injection via memória externa | Média | mitigado por "DATA, not instructions" e allowlist; não é garantia absoluta |
 | Poda do `memory_manager` perto de 200 000 chars | Baixa | engine mantém histórico; limite não é atingido no uso normal |
 | Sem métricas de qualidade de recuperação | Baixa | `PLANNED` |
-| `forget` inacessível pela UI | Baixa (funcional) | `PARTIAL`; recusa segura |
+| Voz não autoriza `forget` | Baixa (funcional) | recusa por design; confirmar na CLI/HUD |
+| Pendências de autorização em memória | Baixa | reiniciar descarta; nada é aprovado por sobrevivência |
 
 ## 8. Evidência
 
@@ -96,4 +100,6 @@ comportamento seguro enquanto não há fluxo de confirmação validado
 - `tests/test_memory_engine.py::test_isolamento_de_escopo`
 - `tests/test_memory_engine.py::test_working_memory_expira_sem_apagar_em_silencio`
 - `tests/test_memory_engine.py::test_ferramentas_de_memoria_operam_pelo_motor`
-- `tests/test_memory_tools.py` (recusa de `forget`, `long_term.json` intocado)
+- `tests/test_memory_tools.py` (recusa de `forget` sem manager, `long_term.json` intocado)
+- `tests/test_authorization.py` (token único, replay, expiração, concorrência)
+- `tests/test_integration_tools.py` (forget real aprovado/recusado)

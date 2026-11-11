@@ -101,7 +101,7 @@ O `memory_manager` **não** foi alterado. O 2.0 o importa e reposiciona
 | Embeddings / similaridade semântica | `PLANNED` | nenhum provedor de embedding configurado; busca lexical + recência + confiança cobre o uso atual |
 | Relações entre entidades (knowledge graph) | `PLANNED` | sem necessidade demonstrada |
 | Captura automática de memória | **não desejada** | política explícita: só `remember` grava |
-| Confirmação interativa de `forget` | `PARTIAL` | gateway recusa até existir UI de confirmação |
+| Autorização interativa de `forget` | `IMPLEMENTED` | `AuthorizationManager` + CLI/HUD (Fase 2) |
 | Criptografia em repouso | `PLANNED` | arquivos JSON locais em texto; risco registrado |
 | Backup/restauração automatizados | `PLANNED` | operação manual de cópia |
 | Memória por agente | `PARTIAL` | escopo pode ser usado por agente, mas não há agentes externos ativos |

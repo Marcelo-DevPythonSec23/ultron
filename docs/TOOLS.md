@@ -106,8 +106,12 @@ rodadas. No teto, uma última chamada é feita sem permissão de nova ferramenta
 
 - **Parâmetros:** `key` (obrigatório), `category` opcional
 - **Timeout:** 5 s · **Permissões:** `memory:write`, `memory:delete`
-- **`requires_confirmation=True`**: enquanto não houver interface de
-  confirmação, o gateway **recusa** a execução. Nada é apagado.
+- **`requires_confirmation=True`**: exige autorização de uso único dada pela
+  interface (CLI `[s/N]` ou HUD). Sem `AuthorizationManager`, o gateway
+  **recusa**; por voz, é **sempre recusado**. Nada é apagado sem aprovação.
+- **Escopos:** remove um fato nos escopos que a instância pode ler
+  (`global` + `user:default`); fatos do usuário (`category=preferences`) vivem
+  em `user:default`.
 
 ## 4. Validação no gateway
 
@@ -117,10 +121,12 @@ Ordem efetiva de `ToolGateway.execute`:
 2. campos obrigatórios presentes e não vazios;
 3. parâmetros desconhecidos são rejeitados;
 4. tipos validados com coerção conservadora (`"3"` → `3`, `"true"` → `True`);
-5. `requires_confirmation` → recusa segura se não houver confirmação;
+5. `requires_confirmation` → `AuthorizationManager`: pedido + decisão da
+   interface (CLI/HUD) + token de uso único; recusa sem manager e na voz;
 6. execução em worker thread via `asyncio.to_thread` + `asyncio.wait_for`;
 7. exceções e timeout viram `ToolResult(ok=False)` — nunca derrubam o loop;
-8. toda decisão é registrada no logger `ultron2.tools.audit`.
+8. toda decisão é registrada no logger `ultron2.tools.audit` e, no caso de ação
+   sensível, também em `ultron2.security.authorization`.
 
 ## 5. Adicionar uma ferramenta
 

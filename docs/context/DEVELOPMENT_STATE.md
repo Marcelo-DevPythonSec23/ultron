@@ -14,7 +14,8 @@ ultron-2.0/ultron_2_0/
 ├── orchestrator_bridge.py  # entrada única (CLI/voz/HUD)
 ├── cli.py                  # interface de texto
 ├── tool_contracts.py       # ToolContract / ToolResult
-├── tool_gateway.py         # allowlist/validação/timeout/confirmação/auditoria
+├── tool_gateway.py         # allowlist/validação/timeout/autorização/auditoria
+├── authorization.py        # PendingAction, token de uso único, expiração, replay
 ├── tool_loop.py            # ToolCallingProvider (protocolo JSON)
 ├── marklvi_actions.py      # subset curado de actions do Mark-LVI
 ├── memory_tools.py         # FactMemory + remember/recall/forget
@@ -35,13 +36,13 @@ ultron-2.0/ultron_2_0/
 | 5 | Tool calling (protocolo JSON, até 4 rodadas) | `IMPLEMENTED` | `tool_loop.py`, `test_tool_loop.py` (9) |
 | 6 | Gateway: allowlist/validação/tipos/desconhecidos | `IMPLEMENTED` | `tool_gateway.py`, `test_tool_gateway.py` (11) |
 | 7 | Timeout e execução em thread | `IMPLEMENTED` | `tool_gateway.py`, `test_faults.py` |
-| 8 | Confirmação de ação sensível | `PARTIAL` | campo existe; sem UI → recusa (`forget`) |
+| 8 | Autorização interativa de ação sensível | `IMPLEMENTED` | `authorization.py`, `test_authorization.py` (14), CLI/HUD |
 | 9 | Ferramenta `system_status` (métricas reais) | `IMPLEMENTED` | `test_integration_tools.py` |
 | 10 | `open_app` | `IMPLEMENTED` (valida allowlist) | `marklvi_actions.py` |
 | 11 | `web_search` (DuckDuckGo) | `IMPLEMENTED` (rede) | `marklvi_actions.py` |
 | 12 | `reminder` | `IMPLEMENTED` (processo local) | `marklvi_actions.py` |
 | 13 | `remember`/`recall` textual | `IMPLEMENTED` | `memory_tools.py`, `test_memory_tools.py` |
-| 14 | `forget` | `PARTIAL` (sem UI de confirmação) | `test_gateway_bloqueia_forget...` |
+| 14 | `forget` | `IMPLEMENTED` (só após aprovação) | `test_integration_tools.py` (aprovação/recusa), `test_authorization.py` |
 | 15 | Memória tipada/versionada/consolidação | `IMPLEMENTED` | `memory_engine.py`, `test_memory_engine.py` (17), `docs/memory/` |
 | 15a | Injeção de memória no prompt (1×/turno) | `IMPLEMENTED` | `memory_injection.py`, `test_memory_engine.py` |
 | 15b | Busca semântica (embeddings) | `PLANNED` | não há provedor/dependência |
@@ -52,7 +53,7 @@ ultron-2.0/ultron_2_0/
 | 20 | Reprodução PCM (`aplay`/`paplay`) | `IMPLEMENTED` | `audio_io.py` |
 | 21 | Voz reusando o mesmo núcleo | `IMPLEMENTED` | `voice/pipeline.py`, `test_voice_pipeline.py` |
 | 22 | Falha de TTS preserva texto | `IMPLEMENTED` | `test_faults.py` |
-| 23 | HUD web (estado/chat/histórico/tools) | `IMPLEMENTED` | `web/app.py`, `test_web.py` (11) |
+| 23 | HUD web (estado/chat/histórico/tools/aprovações) | `IMPLEMENTED` | `web/app.py`, `test_web.py` (13) |
 | 24 | Recuperação de falhas (provedor/dispositivo/conexão/tool/TTS) | `IMPLEMENTED` | `test_faults.py` (10) |
 | 25 | Wake word / VAD / barge-in | `PLANNED` | não há código |
 | 26 | Model Router | `PLANNED` | não implementar fictício |
@@ -66,7 +67,7 @@ ultron-2.0/ultron_2_0/
 |---|---|---|
 | 0 — Reavaliação | `IMPLEMENTED` | `docs/roadmap/ULTRON_21_ASSESSMENT.md`, baseline 109+64 |
 | 1 — Documentação/Git | `IMPLEMENTED` | repositório da raiz `3fb03bb`, índice unificado, 0 links quebrados |
-| 2 — Autorização interativa | `PLANNED` | `tool_gateway.py` ainda recusa `requires_confirmation` |
+| 2 — Autorização interativa | `IMPLEMENTED` | `authorization.py` + CLI `[s/N]` + HUD `/api/approvals`; 128 testes verdes |
 | 2.5 — Interface (`INTERFACE.md`) | `PLANNED` | HUD mínimo; auditoria/UI ainda não iniciadas |
 | 3 — Model Router | `PLANNED` | só `ProviderRegistry` + seleção manual |
 | 4 — Multiagente | `PLANNED` | sem código |
@@ -84,21 +85,23 @@ ultron-2.0/ultron_2_0/
 | `test_bridge.py` | 5 | conversa única, status, demo, one-shot |
 | `test_tool_gateway.py` | 11 | validação e segurança |
 | `test_tool_loop.py` | 9 | protocolo, rodadas, streaming |
-| `test_integration_tools.py` | 2 | tool real, subset |
+| `test_integration_tools.py` | 4 | tool real, subset, `forget` aprovado/recusado |
+| `test_authorization.py` | 14 | token único, replay, expiração, argumentos, concorrência |
 | `test_memory_tools.py` | 8 | memória explícita |
 | `test_memory_engine.py` | 17 | motor tipado, escopo, versão, exclusão, injeção, tools |
 | `test_voice_units.py` | 15 | STT/TTS/áudio |
 | `test_voice_pipeline.py` | 6 | fluxo de voz |
 | `test_faults.py` | 10 | Teste G |
-| `test_web.py` | 11 | HUD |
-| `test_docs.py` | 4 | caminhos/índice documental |
-| **Total** | **109** | |
+| `test_web.py` | 13 | HUD + aprovações |
+| `test_docs.py` | 5 | caminhos/índice/links documentais |
+| **Total** | **128** | |
 
 Regressão do núcleo: **64** testes em `lain/`.
 
 ## 5. Problemas conhecidos
 
-1. `forget` não pode ser confirmado pela interface → sempre recusado (seguro).
+1. `forget` funciona só com aprovação da CLI/HUD; voz sempre recusa (por design).
+   Pendências de autorização vivem em memória (reiniciar descarta).
 2. `browser_control`/`screen_processor` do Mark-LVI falham ao importar sem
    `playwright`/`numpy` — por isso ficam fora do subset.
 3. Sem teste ao vivo automatizado de STT Live (rede/microfone).
@@ -116,10 +119,8 @@ Dev: `pytest`, `pytest-asyncio`.
 
 ## 7. Próximos objetivos (priorizados)
 
-1. Fase 2: `AuthorizationManager` + confirmação real na CLI e no HUD.
-2. Fase 2.5: auditoria da interface do Mark-LVI e reconstrução no HUD web.
-3. Fase 3: Model Router com ≥2 providers e fallback testado.
-4. Interface de confirmação para `forget` e ações sensíveis (depende da Fase 2).
+1. Fase 2.5: auditoria da interface do Mark-LVI e reconstrução no HUD web.
+2. Fase 3: Model Router com ≥2 providers e fallback testado.
 5. Expor escopo/tags/trust, episódios e procedimentos nas tools/HUD.
 6. Busca semântica opcional (embeddings) sem virar dependência obrigatória.
 7. Agendador de `expire()`/`consolidate()` e métricas de qualidade.

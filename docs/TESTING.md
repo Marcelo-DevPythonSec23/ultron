@@ -3,7 +3,7 @@
 ## 1. Como executar
 
 ```bash
-# suíte do ULTRON 2.0 (109 testes)
+# suíte do ULTRON 2.0 (128 testes)
 cd ultron-2.0
 ./.venv/bin/python -m pytest -q
 
@@ -17,7 +17,7 @@ na maioria dos testes e um provedor scriptável (`tests/fakes.py`) que implement
 o contrato real `LLMProvider` — não é mock de unidade: exercita o orquestrador,
 o proxy de ferramentas e a persistência reais sem rede.
 
-## 2. Cobertura por arquivo (109 testes)
+## 2. Cobertura por arquivo (128 testes)
 
 | Arquivo | Testes | O que valida |
 |---|---|---|
@@ -26,14 +26,15 @@ o proxy de ferramentas e a persistência reais sem rede.
 | `tests/test_bridge.py` | 5 | conversa única pela interface, `/status`, CLI `--demo`, one-shot, banco próprio |
 | `tests/test_tool_gateway.py` | 11 | allowlist, obrigatórios, tipos/coerção, parâmetros desconhecidos, timeout, confirmação, exceções |
 | `tests/test_tool_loop.py` | 9 | protocolo JSON, resultado como dado, teto de rodadas, streaming único, provider sem tools |
-| `tests/test_integration_tools.py` | 2 | `system_status` real pelo gateway; subset curado registrado |
+| `tests/test_integration_tools.py` | 4 | `system_status` real; subset registrado; `forget` real só após aprovação e nada apagado na recusa |
+| `tests/test_authorization.py` | 14 | token de uso único, replay, expiração, argumentos alterados, concorrência, integração com o gateway |
 | `tests/test_memory_tools.py` | 8 | `remember`/`recall`/`forget`, categorias, recusa de `forget`, nada automático, `long_term.json` intocado |
 | `tests/test_memory_engine.py` | 17 | tipos, escopo, dedupe, versão, exclusão autorizada, consolidação, orçamento, expiração, injeção no prompt, tools pelo motor |
-| `tests/test_docs.py` | 4 | caminhos obrigatórios, índice sem fantasmas, links internos, ponteiro de contexto |
+| `tests/test_docs.py` | 5 | caminhos obrigatórios, índice sem fantasmas, links internos, ponteiro de contexto |
 | `tests/test_voice_units.py` | 14 | contratos, PCM/WAV, comandos de dispositivo, mime/rate, extração de áudio, `SystemSpeaker`, falhas |
 | `tests/test_voice_pipeline.py` | 6 | transcript → núcleo, `handle_audio`, TTS opcional, mesmo `conversation_id`, turno vazio |
 | `tests/test_faults.py` | 10 | Teste G: provedor, microfone, subprocesso, player, STT, parâmetro, tool inexistente, TTS, fluxo voz→tool→voz |
-| `tests/test_web.py` | 11 | HUD: HTML/tokens, status real, tools, chat + histórico, `/api/new`, 502, entrada inválida, bind local |
+| `tests/test_web.py` | 13 | HUD: HTML/tokens, status real, tools, chat + histórico, `/api/new`, 502, entrada inválida, bind local, aprovação/recusa/replay de `forget` |
 
 ## 3. Mapa com os testes do AGENTS.md
 
@@ -43,7 +44,7 @@ o proxy de ferramentas e a persistência reais sem rede.
 | **B — Conversação por texto** | `test_bridge`, `test_web` | mensagem → orquestrador → provider → resposta → persistência |
 | **C — STT** | `test_voice_units`, `test_voice_pipeline`, `test_faults` | comandos reais de microfone, transcrição em lote, queda de conexão, microfone ausente |
 | **D — TTS** | `test_voice_units`, `test_voice_pipeline`, `test_faults` | síntese/reprodução, falha de player, recuperação no turno seguinte |
-| **E — Ferramentas** | `test_tool_gateway`, `test_tool_loop`, `test_integration_tools` | descoberta/contrato/validação/autorização/execução/interpretação |
+| **E — Ferramentas** | `test_tool_gateway`, `test_tool_loop`, `test_integration_tools`, `test_authorization` | descoberta/contrato/validação/autorização/execução/interpretação |
 | **F — Fluxo completo** | `test_faults::test_fluxo_completo_voz_tool_voz...` | fala → núcleo → tool real → texto → TTS, **uma** conversa |
 | **G — Falhas controladas** | `test_faults` (10) | provedor, dispositivo, subprocesso, conexão, parâmetro, timeout, tool inexistente, TTS |
 
@@ -51,7 +52,9 @@ o proxy de ferramentas e a persistência reais sem rede.
 
 | Data | Suíte | Resultado |
 |---|---|---|
-| 2026-11-10 | ULTRON 2.0 (`ultron-2.0/.venv`) | **109 passed** |
+| 2026-11-10 | ULTRON 2.0 (`ultron-2.0/.venv`) | **109 passed** (baseline da integração 0–10) |
+| 2026-11-11 | ULTRON 2.0 após a Fase 2 | **128 passed** |
+| 2026-11-11 | Regressão lain (após a Fase 2) | **64 passed** |
 | 2026-11-10 | Memória (`tests/test_memory_engine.py`) | **17 passed** |
 | 2026-11-10 | Regressão lain (`lain/.venv`) | **64 passed** |
 | 2026-11-10 | Smoke HTTP do HUD (`127.0.0.1:8799`) | `/` 200 (14 522 bytes), `/api/status`, `/api/tools`, `/api/chat`, `/api/history` reais |
@@ -78,7 +81,7 @@ O que a suíte **não** cobre:
 - microfone/alto-falante físicos — o ambiente tem `parec`/`aplay`, mas os testes
   usam subprocessos controlados;
 - wake word, VAD e barge-in — não implementados, portanto não testados;
-- confirmação interativa — não implementada; o teste valida a **recusa** segura;
+- aprovação interativa: coberta com handler/threads e HTTP (sem TTY real nem navegador); a recusa por voz é validada como política, sem áudio real;
 - busca semântica/embeddings — não implementados, portanto não testados;
 - memória: dois processos concorrentes no mesmo arquivo, corrupção de escrita
   induzida e qualidade de recuperação (precisão/recall) não são medidos; a

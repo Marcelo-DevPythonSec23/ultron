@@ -73,9 +73,10 @@ Exige `authorized=True` (`PermissionError` caso contrário). Ao autorizar:
 A exclusão só é reportada como concluída depois de remover as versões antigas —
 não se declara algo excluído enquanto cópias continuam legíveis no histórico.
 
-`forget(key, category)` resolve o id (escopo `global`) e chama `delete`
-autorizado; pela interface, o gateway recusa antes disso por falta de confirmação
-(ver [MEMORY_SECURITY.md](MEMORY_SECURITY.md)).
+`forget(key, category)` resolve o id nos escopos de leitura (`global` +
+`user:default`) e chama `delete` autorizado; pela interface, o gateway só chega
+aqui depois da autorização de uso único da CLI/HUD (ver
+[MEMORY_SECURITY.md](MEMORY_SECURITY.md)).
 
 ## 6. Consolidação (`consolidate`)
 

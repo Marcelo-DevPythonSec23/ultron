@@ -55,7 +55,8 @@ ultron-2.0/
 │   ├── core_runtime.py             # wiring do núcleo lain + loop dedicado
 │   ├── orchestrator_bridge.py      # ponta de entrada única (texto/voz/web)
 │   ├── tool_contracts.py           # ToolContract / ToolResult / ToolExecutor
-│   ├── tool_gateway.py             # allowlist, validação, timeout, auditoria
+│   ├── tool_gateway.py             # allowlist, validação, timeout, autorização, auditoria
+│   ├── authorization.py            # PendingAction/token de uso único/expiração
 │   ├── tool_loop.py                # ToolCallingProvider (protocolo JSON)
 │   ├── marklvi_actions.py          # subset curado das actions
 │   ├── memory_tools.py             # FactMemory + remember/recall/forget
@@ -64,7 +65,7 @@ ultron-2.0/
 │   ├── cli.py                      # interface de texto
 │   ├── voice/                      # STT, TTS, áudio, pipeline (interface)
 │   └── web/                        # HUD FastAPI/uvicorn (interface)
-└── tests/                          # 109 testes (ver docs/TESTING.md)
+└── tests/                          # 128 testes (ver docs/TESTING.md)
 ```
 
 `lain/` e `Mark-LVI-main/` são **importados via `sys.path`**, nunca copiados nem
@@ -183,7 +184,10 @@ Microfone (parec/arecord) → Gemini Live (somente transcrição)
 
 ```text
 mensagem → orquestrador → modelo decide {"tool": …}
-  → gateway valida contrato/permissões → executa em worker thread com timeout
+  → gateway valida contrato/permissões
+  → [se requires_confirmation] AuthorizationManager: pedido → interface
+    (CLI/HUD) decide → token de uso único → consume
+  → executa em worker thread com timeout
   → ToolResult (status=done/unverified/failed)
   → volta ao modelo como DADO não confiável → resposta final
 ```
@@ -196,8 +200,10 @@ Detalhes em `docs/SECURITY.md`. Resumo:
 - validação de campos obrigatórios, tipos e parâmetros desconhecidos;
 - timeout por ferramenta e execução fora do event loop;
 - auditoria em logger dedicado (`ultron2.tools.audit`);
-- `forget` exige confirmação e é **recusado** enquanto a interface de
-  confirmação não existir (recusar é o comportamento seguro);
+- ações sensíveis passam pelo `AuthorizationManager` (`ultron_2_0/authorization.py`):
+  pedido → decisão da interface (CLI `[s/N]` ou HUD) → token de uso único
+  vinculado a ferramenta + argumentos, com expiração e proteção contra replay;
+  sem manager o gateway recusa e **a voz sempre recusa**;
 - nenhuma execução de shell irrestrita é exposta;
 - segredos nunca são logados nem duplicados; `config/api_keys.json` do Mark-LVI
   não é criado nem editado;
@@ -210,13 +216,12 @@ Detalhes em `docs/SECURITY.md`. Resumo:
 | Item | Situação | Motivo |
 |---|---|---|
 | Wake word / VAD | **não integrados** | dependência `openwakeword` ausente; não há VAD validado no ambiente |
-| Confirmação interativa de ações destrutivas | **não integrada** | HUD/CLI ainda não oferecem fluxo de confirmação; o gateway recusa |
+| Confirmação interativa de ações destrutivas | **implementada (Fase 2)** | `AuthorizationManager` + CLI + HUD; voz sempre recusa |
 | `browser_control`, `file_controller`, `computer_settings`, `dev_agent`, `code_helper`, `file_processor`, `game_updater` | **desconectadas** | riscos S1–S4 da auditoria (shell=True, execução de código, FAILSAFE desativado) |
 | Streaming incremental de resposta | **não usado** | o protocolo de ferramentas exige a resposta completa |
 | Busca semântica (embeddings) | **não implementada** | nenhum provedor/configuração; lexical + recência cobre o uso atual |
 | Captura automática de memória | **não desejada** | política explícita: só `remember`/engine grava |
 | Relações entre entidades (grafo) | **não implementado** | sem necessidade demonstrada |
-| Confirmação interativa de `forget` | **não implementada** | gateway recusa; `PARTIAL` |
 | Tool calling nativo do provedor | **não usado** | o `LLMRequest` do lain não carrega tools; extensão via proxy de prompt |
 | Interface Qt | **descartada** | decisão nº 6: HUD web usa FastAPI/uvicorn já presentes, adequado a ~4 GB de RAM |
 

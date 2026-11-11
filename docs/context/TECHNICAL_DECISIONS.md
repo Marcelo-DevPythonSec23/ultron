@@ -150,16 +150,20 @@ repo do produto. Commit inicial `3fb03bb`.
 
 ## ADR-012 — Autorização interativa separada da execução
 
-**Status:** Proposta (Fase 2)
-**Contexto:** `requires_confirmation` existe, mas o gateway recusa sempre;
-não há como confirmar pela CLI/HUD.
-**Decisão proposta:** `AuthorizationManager` com `PendingAction` +
-`ApprovalToken` de uso único, vinculado a ferramenta + argumentos exatos,
-com expiração; a aprovação vem da interface, nunca do modelo; a execução só
-ocorre com token válido.
-**Consequências:** `forget` passa a funcionar; replay/argumentos alterados são
-rejeitados; auditoria registra pedido, aprovação e execução.
-**Fontes:** `tool_gateway.py:155`, `SECURITY.md`.
+**Status:** Aceita (2026-11-11)
+**Contexto:** `requires_confirmation` existia, mas o gateway recusava sempre;
+não havia como confirmar pela CLI/HUD.
+**Decisão:** `AuthorizationManager` (`ultron_2_0/authorization.py`) com
+`PendingAction` + `ApprovalToken` de uso único, vinculado a ferramenta +
+argumentos exatos (SHA-256), com expiração; a aprovação vem da interface, nunca
+do modelo; a execução só ocorre com token válido e consumido.
+**Consequências:** `forget` passou a funcionar (e revelou que ele buscava apenas
+o escopo `global`, enquanto fatos do usuário nascem em `user:default` — corrigido
+para os escopos de leitura); replay/argumentos alterados são rejeitados;
+auditoria registra pedido, aprovação e execução. Voz sempre recusa.
+**Evidência:** `tests/test_authorization.py` (14), `test_web.py` (aprovações),
+`test_integration_tools.py` (forget aprovado/recusado), 128 testes verdes.
+**Fontes:** `tool_gateway.py::_authorize`, `SECURITY.md`, `TOOLS.md`.
 
 ---
 

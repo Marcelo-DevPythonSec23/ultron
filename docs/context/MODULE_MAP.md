@@ -37,13 +37,22 @@ Se não houver evidência, o estado é `UNKNOWN`.
 
 ### `tool_contracts.py`
 - **Responsabilidade:** `ToolContract` (nome, descrição, schema, obrigatórios,
-  timeout, confirmação, permissões, fonte, erros) e `ToolResult`.
+  timeout, confirmação, `authorization_timeout_seconds`, permissões, fonte,
+  erros) e `ToolResult`.
 - **Estado:** `IMPLEMENTED`. **Testes:** `test_tool_gateway.py`.
+
+### `authorization.py`
+- **Responsabilidade:** `AuthorizationManager`, `PendingAction` e token de uso
+  único; expiração, vínculo ferramenta+argumentos (fingerprint), proteção contra
+  replay, concorrência (`Lock` + `Event`) e auditoria.
+- **Estado:** `IMPLEMENTED`. **Testes:** `test_authorization.py` (14).
 
 ### `tool_gateway.py`
 - **Responsabilidade:** allowlist, validação de parâmetros/tipos, rejeição de
-  desconhecidos, timeout em thread, gate de confirmação, auditoria.
-- **Estado:** `IMPLEMENTED`. **Testes:** `test_tool_gateway.py`, `test_faults.py`.
+  desconhecidos, autorização interativa (`_authorize`), timeout em thread,
+  auditoria.
+- **Estado:** `IMPLEMENTED`. **Testes:** `test_tool_gateway.py`, `test_faults.py`,
+  `test_authorization.py`.
 
 ### `tool_loop.py`
 - **Responsabilidade:** `ToolCallingProvider` — injeta declarações no system
@@ -101,7 +110,7 @@ Se não houver evidência, o estado é `UNKNOWN`.
 
 | Módulo | Responsabilidade | Estado | Testes |
 |---|---|---|---|
-| `app.py` | FastAPI: `/`, `/api/status`, `/api/tools`, `/api/history`, `/api/chat`, `/api/new` | `IMPLEMENTED` | `test_web.py` (11) |
+| `app.py` | FastAPI: `/`, `/api/status`, `/api/tools`, `/api/history`, `/api/chat`, `/api/new`, `/api/approvals` | `IMPLEMENTED` | `test_web.py` (13) |
 | `server.py` | uvicorn, bind `127.0.0.1:8765`, ciclo de vida do bridge | `IMPLEMENTED` | `test_web.py` |
 | `static/index.html` | UI local (tema ULTRON), sem CDN | `IMPLEMENTED` | smoke HTTP real |
 

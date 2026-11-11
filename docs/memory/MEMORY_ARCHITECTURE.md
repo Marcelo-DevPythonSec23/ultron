@@ -57,7 +57,7 @@ Regras efetivas:
 | `MemoryEngine` | `ultron_2_0/memory_engine.py` | armazenamento tipado, recuperação, versão, retenção, consolidação, métricas | `IMPLEMENTED` |
 | `MemoryInjectionProvider` | `ultron_2_0/memory_injection.py` | recuperar memória da última mensagem do usuário e injetar no prompt | `IMPLEMENTED` |
 | `FactMemory` | `ultron_2_0/memory_tools.py` | fachada sobre `memory_manager`; arquivo canônico; lock de caminho | `IMPLEMENTED` |
-| tools `remember`/`recall`/`forget` | `ultron_2_0/memory_tools.py` | contratos e execução via gateway | `IMPLEMENTED` (`forget` recusado sem confirmação) |
+| tools `remember`/`recall`/`forget` | `ultron_2_0/memory_tools.py` | contratos e execução via gateway | `IMPLEMENTED` (`forget` exige autorização CLI/HUD) |
 | wiring | `ultron_2_0/core_runtime.py` | cria o engine sempre, injeta no provider e registra tools | `IMPLEMENTED` |
 | armazenamento original | `Mark-LVI-main/memory/memory_manager.py` | persistência JSON do esquema antigo | reutilizado, **não modificado** |
 | histórico conversacional | `lain/app/core/chat_service.py` + SQLite | histórico de mensagens | preservado, fora do engine |

@@ -88,6 +88,6 @@ Ver `docs/TESTING.md` para o consolidado.
 - Não há teste de corrupção/escrita parcial induzida (só leitura tolerante).
 - Não há teste de embeddings (não implementados).
 - Não há avaliação de qualidade de recuperação (precisão/recall).
-- Não há teste de UI de confirmação para `forget` (interface não existe).
+- A aprovação de `forget` é testada por handler/threads e HTTP, sem TTY ou navegador reais.
 
 Nenhuma dessas lacunas é apresentada como funcionalidade concluída.
