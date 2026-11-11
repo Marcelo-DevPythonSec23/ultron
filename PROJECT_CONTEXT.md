@@ -89,7 +89,7 @@ Componentes reais (detalhes em `docs/context/MODULE_MAP.md`):
 | STT Gemini Live (só transcrição) | `IMPLEMENTED` (requer chave/rede/microfone) | `test_voice_pipeline.py`, `test_voice_units.py` |
 | TTS Gemini / voz do sistema | `IMPLEMENTED` (validado ao vivo) | `docs/TESTING.md` |
 | Voz reusando o mesmo núcleo | `IMPLEMENTED` | `test_voice_pipeline.py`, `test_faults.py` |
-| HUD web local | `IMPLEMENTED` | `test_web.py` (13) |
+| HUD web local | `IMPLEMENTED` | `test_web.py` (21), `docs/ui/` |
 | Recuperação de falhas | `IMPLEMENTED` | `test_faults.py` (10) |
 | Wake word / VAD / barge-in | `PLANNED` (não existe) | — |
 | Confirmação interativa de ações destrutivas | `PLANNED` (gate recusa) | `test_memory_tools.py` |

@@ -110,9 +110,10 @@ Se não houver evidência, o estado é `UNKNOWN`.
 
 | Módulo | Responsabilidade | Estado | Testes |
 |---|---|---|---|
-| `app.py` | FastAPI: `/`, `/api/status`, `/api/tools`, `/api/history`, `/api/chat`, `/api/new`, `/api/approvals` | `IMPLEMENTED` | `test_web.py` (13) |
+| `app.py` | FastAPI: `/`, `/api/status`, `/api/system`, `/api/activity`, `/api/tools`, `/api/history`, `/api/chat`, `/api/new`, `/api/approvals` (+ approve/reject) | `IMPLEMENTED` | `test_web.py` (21) |
+| `activity.py` | `ActivityLog`: ring buffer da sessão (turno/resposta/tool/erro/aprovação) | `IMPLEMENTED` | `test_web.py` |
 | `server.py` | uvicorn, bind `127.0.0.1:8765`, ciclo de vida do bridge | `IMPLEMENTED` | `test_web.py` |
-| `static/index.html` | UI local (tema ULTRON), sem CDN | `IMPLEMENTED` | smoke HTTP real |
+| `static/index.html` | UI local (tema ULTRON, canvas por estado real), sem CDN | `IMPLEMENTED` | `test_web.py` + smoke HTTP |
 
 ## 4. Testes (`ultron-2.0/tests/`)
 

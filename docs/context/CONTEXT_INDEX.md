@@ -8,7 +8,7 @@ exige (ver §5 de `CONTEXT.md`).
 | Caminho | Assunto | Descrição | Autoridade | Atualização | Relacionados |
 |---|---|---|---|---|---|
 | `AGENTS.md` (raiz) | Requisitos | Diretrizes mestras ULTRON 2.1 e roteiro de fases | **máxima** | 2026-11-11 | `ultron-2.0/AGENTS.md` |
-| `INTERFACE.md` (raiz) | Requisitos de UI | Fase 2.5: reconstrução da interface do Mark-LVI | **máxima** para UI | 2026-11-11 | documentação de UI (a criar na fase) |
+| `INTERFACE.md` (raiz) | Requisitos de UI | Fase 2.5: reconstrução da interface do Mark-LVI | **máxima** para UI | 2026-11-11 | `docs/ui/*` |
 | `PROJECT_CONTEXT.md` | Visão global | Identidade, origem, arquitetura, estado, restrições | **máxima** | 2026-11-10 | `docs/context/*` |
 | `docs/context/CONTEXT_INDEX.md` | Índice | Este mapa | **máxima** | 2026-11-11 | todos |
 | `CONTEXT.md` | Context Engineering | Especificação do sistema de contexto | alta (histórica) | 2026-11-10 | `docs/context/*` |
@@ -39,6 +39,11 @@ exige (ver §5 de `CONTEXT.md`).
 | `docs/SECURITY.md` | Segurança | Permissões, validação, confirmação |
 | `docs/context/agents/SECURITY_AGENT.md` | Segurança (papel) | Antes de expor execução |
 | `docs/TESTING.md` | Testes | Antes/depois de qualquer mudança |
+| `docs/ui/INTERFACE_AUDIT.md` | UI (auditoria) | Antes de alterar o HUD; o que veio da referência |
+| `docs/ui/UI_ARCHITECTURE.md` | UI (arquitetura) | Camadas, contratos HTTP, fluxo do turno |
+| `docs/ui/UI_COMPONENTS.md` | UI (componentes) | Componente → endpoint/dado real |
+| `docs/ui/UI_FUNCTIONALITY_MATRIX.md` | UI (paridade) | O que é integrado/adaptado/não portado |
+| `docs/ui/UI_TESTING.md` | UI (testes) | Cobertura e resultados do HUD |
 | `docs/context/agents/QA_AGENT.md` | QA (papel) | Validação e regressão |
 | `docs/context/agents/ARCHITECT_AGENT.md` | Arquitetura (papel) | Mudanças estruturais |
 | `docs/context/agents/BACKEND_AGENT.md` | Núcleo/backend | Orquestrador, providers, banco |
@@ -73,8 +78,9 @@ exige (ver §5 de `CONTEXT.md`).
 - Não há ADRs do 2.0 fora de `TECHNICAL_DECISIONS.md`.
 - `docs/memory/` existe e está indexado acima; não criar documentos além dos 9
   listados sem implementação correspondente.
-- `docs/ui/` e `docs/roadmap/ULTRON_21_FINAL_REPORT.md` só devem existir quando
-  as fases correspondentes forem implementadas (Fase 2.5 e Fase 8).
+- `docs/ui/` existe desde a Fase 2.5 (5 documentos em `docs/ui/`);
+  `docs/roadmap/ULTRON_21_FINAL_REPORT.md` só deve existir quando a Fase 8 for
+  concluída.
 
 ## Versionamento documental
 

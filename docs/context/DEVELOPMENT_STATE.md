@@ -22,7 +22,7 @@ ultron-2.0/ultron_2_0/
 ├── memory_engine.py        # tipos/escopo/versão/retenção/consolidação
 ├── memory_injection.py     # memória recuperada no prompt (por turno)
 ├── voice/                  # audio_io, contracts, stt_gemini, tts, pipeline, runner
-└── web/                    # app FastAPI, server uvicorn, static/index.html
+└── web/                    # app FastAPI, server uvicorn, activity, static/index.html
 ```
 
 ## 2. Funcionalidades
@@ -53,7 +53,9 @@ ultron-2.0/ultron_2_0/
 | 20 | Reprodução PCM (`aplay`/`paplay`) | `IMPLEMENTED` | `audio_io.py` |
 | 21 | Voz reusando o mesmo núcleo | `IMPLEMENTED` | `voice/pipeline.py`, `test_voice_pipeline.py` |
 | 22 | Falha de TTS preserva texto | `IMPLEMENTED` | `test_faults.py` |
-| 23 | HUD web (estado/chat/histórico/tools/aprovações) | `IMPLEMENTED` | `web/app.py`, `test_web.py` (13) |
+| 23 | HUD web (estado/chat/histórico/tools/aprovações) | `IMPLEMENTED` | `web/app.py`, `test_web.py` (21) |
+| 23a | Métricas reais do host no HUD (`/api/system`) | `IMPLEMENTED` | `marklvi_actions.system_snapshot`, `test_web.py` |
+| 23b | Atividade da sessão no HUD (`/api/activity`) | `IMPLEMENTED` | `web/activity.py`, `test_web.py` |
 | 24 | Recuperação de falhas (provedor/dispositivo/conexão/tool/TTS) | `IMPLEMENTED` | `test_faults.py` (10) |
 | 25 | Wake word / VAD / barge-in | `PLANNED` | não há código |
 | 26 | Model Router | `PLANNED` | não implementar fictício |
@@ -68,7 +70,7 @@ ultron-2.0/ultron_2_0/
 | 0 — Reavaliação | `IMPLEMENTED` | `docs/roadmap/ULTRON_21_ASSESSMENT.md`, baseline 109+64 |
 | 1 — Documentação/Git | `IMPLEMENTED` | repositório da raiz `3fb03bb`, índice unificado, 0 links quebrados |
 | 2 — Autorização interativa | `IMPLEMENTED` | `authorization.py` + CLI `[s/N]` + HUD `/api/approvals`; 128 testes verdes |
-| 2.5 — Interface (`INTERFACE.md`) | `PLANNED` | HUD mínimo; auditoria/UI ainda não iniciadas |
+| 2.5 — Interface (`INTERFACE.md`) | `IMPLEMENTED` | auditoria + HUD reconstruído (`docs/ui/`), 21 testes de HUD, 136 verdes |
 | 3 — Model Router | `PLANNED` | só `ProviderRegistry` + seleção manual |
 | 4 — Multiagente | `PLANNED` | sem código |
 | 5 — CLI/MCP | `PLANNED` | sem adaptadores |
@@ -92,9 +94,9 @@ ultron-2.0/ultron_2_0/
 | `test_voice_units.py` | 15 | STT/TTS/áudio |
 | `test_voice_pipeline.py` | 6 | fluxo de voz |
 | `test_faults.py` | 10 | Teste G |
-| `test_web.py` | 13 | HUD + aprovações |
+| `test_web.py` | 21 | HUD + aprovações + métricas/atividade reais |
 | `test_docs.py` | 5 | caminhos/índice/links documentais |
-| **Total** | **128** | |
+| **Total** | **136** | |
 
 Regressão do núcleo: **64** testes em `lain/`.
 
@@ -119,10 +121,9 @@ Dev: `pytest`, `pytest-asyncio`.
 
 ## 7. Próximos objetivos (priorizados)
 
-1. Fase 2.5: auditoria da interface do Mark-LVI e reconstrução no HUD web.
-2. Fase 3: Model Router com ≥2 providers e fallback testado.
-5. Expor escopo/tags/trust, episódios e procedimentos nas tools/HUD.
-6. Busca semântica opcional (embeddings) sem virar dependência obrigatória.
-7. Agendador de `expire()`/`consolidate()` e métricas de qualidade.
-8. Criptografia em repouso e backup/restauração de `data/`.
-9. Retry/backoff padronizado para providers (Fase 3).
+1. Fase 3: Model Router com ≥2 providers e fallback testado.
+2. Expor escopo/tags/trust, episódios e procedimentos nas tools/HUD.
+3. Busca semântica opcional (embeddings) sem virar dependência obrigatória.
+4. Agendador de `expire()`/`consolidate()` e métricas de qualidade.
+5. Criptografia em repouso e backup/restauração de `data/`.
+6. Retry/backoff padronizado para providers (Fase 3).

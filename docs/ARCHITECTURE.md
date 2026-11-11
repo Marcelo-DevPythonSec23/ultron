@@ -65,7 +65,7 @@ ultron-2.0/
 │   ├── cli.py                      # interface de texto
 │   ├── voice/                      # STT, TTS, áudio, pipeline (interface)
 │   └── web/                        # HUD FastAPI/uvicorn (interface)
-└── tests/                          # 128 testes (ver docs/TESTING.md)
+└── tests/                          # 136 testes (ver docs/TESTING.md)
 ```
 
 `lain/` e `Mark-LVI-main/` são **importados via `sys.path`**, nunca copiados nem

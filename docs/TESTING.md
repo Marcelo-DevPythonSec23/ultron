@@ -3,7 +3,7 @@
 ## 1. Como executar
 
 ```bash
-# suíte do ULTRON 2.0 (128 testes)
+# suíte do ULTRON 2.0 (136 testes)
 cd ultron-2.0
 ./.venv/bin/python -m pytest -q
 
@@ -17,7 +17,7 @@ na maioria dos testes e um provedor scriptável (`tests/fakes.py`) que implement
 o contrato real `LLMProvider` — não é mock de unidade: exercita o orquestrador,
 o proxy de ferramentas e a persistência reais sem rede.
 
-## 2. Cobertura por arquivo (128 testes)
+## 2. Cobertura por arquivo (136 testes)
 
 | Arquivo | Testes | O que valida |
 |---|---|---|
@@ -34,7 +34,7 @@ o proxy de ferramentas e a persistência reais sem rede.
 | `tests/test_voice_units.py` | 14 | contratos, PCM/WAV, comandos de dispositivo, mime/rate, extração de áudio, `SystemSpeaker`, falhas |
 | `tests/test_voice_pipeline.py` | 6 | transcript → núcleo, `handle_audio`, TTS opcional, mesmo `conversation_id`, turno vazio |
 | `tests/test_faults.py` | 10 | Teste G: provedor, microfone, subprocesso, player, STT, parâmetro, tool inexistente, TTS, fluxo voz→tool→voz |
-| `tests/test_web.py` | 13 | HUD: HTML/tokens, status real, tools, chat + histórico, `/api/new`, 502, entrada inválida, bind local, aprovação/recusa/replay de `forget` |
+| `tests/test_web.py` | 21 | HUD: HTML/tokens, acessibilidade/movimento reduzido, status real, tools, chat + histórico, `/api/new`, 502, entrada inválida, bind local, aprovação/recusa/replay; métricas reais (`/api/system` + 503), atividade da sessão (`/api/activity`), `busy` |
 
 ## 3. Mapa com os testes do AGENTS.md
 
@@ -54,6 +54,7 @@ o proxy de ferramentas e a persistência reais sem rede.
 |---|---|---|
 | 2026-11-10 | ULTRON 2.0 (`ultron-2.0/.venv`) | **109 passed** (baseline da integração 0–10) |
 | 2026-11-11 | ULTRON 2.0 após a Fase 2 | **128 passed** |
+| 2026-11-11 | ULTRON 2.0 após a Fase 2.5 | **136 passed** |
 | 2026-11-11 | Regressão lain (após a Fase 2) | **64 passed** |
 | 2026-11-10 | Memória (`tests/test_memory_engine.py`) | **17 passed** |
 | 2026-11-10 | Regressão lain (`lain/.venv`) | **64 passed** |

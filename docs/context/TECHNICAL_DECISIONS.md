@@ -169,14 +169,20 @@ auditoria registra pedido, aprovação e execução. Voz sempre recusa.
 
 ## ADR-013 — Fase 2.5 adapta a interface ao HUD web
 
-**Status:** Proposta (Fase 2.5)
+**Status:** Aceita (Fase 2.5 implementada)
 **Contexto:** a referência Mark-LVI é PyQt6 (`ui.py`, 7.504 linhas, avatar,
 viseme) mais um dashboard HTTPS; o ambiente tem ~4 GB RAM e o 2.0 já tem HUD
 web (ADR-006).
-**Decisão proposta:** auditar a referência e reconstruir a **funcionalidade**
-no HUD web, com identidade ULTRON própria, sem portar PyQt6.
-**Consequências:** paridade funcional documentada por matriz; diferenças de
-plataforma registradas; animações respeitam `prefers-reduced-motion`.
+**Decisão:** auditar a referência e reconstruir a **funcionalidade** no HUD web,
+com identidade ULTRON própria, sem portar PyQt6. HUD local (`127.0.0.1`); voz em
+processo separado; dashboard remoto, plugins e edição direta de memória não
+portados por segurança/escopo.
+**Consequências:** paridade funcional documentada por matriz
+(`docs/ui/UI_FUNCTIONALITY_MATRIX.md`); diferenças de plataforma registradas;
+métricas e atividade vêm de fontes reais; animações respeitam
+`prefers-reduced-motion`.
+**Evidência:** `docs/ui/` (5 documentos), `web/activity.py`,
+`marklvi_actions.system_snapshot`, `test_web.py` (21), 136 testes verdes.
 **Fontes:** `INTERFACE.md`, `ultron_2_0/web/`.
 
 ---
