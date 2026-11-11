@@ -79,6 +79,27 @@ def test_hud_serve_html_com_tokens_de_identidade(client):
     assert "cdn" not in html.lower()  # nenhuma dependência externa
 
 
+def test_hud_tem_acessibilidade_e_movimento_reduzido(client):
+    """A UI precisa ser operável sem mouse e respeitar prefers-reduced-motion."""
+    html = client[0].get("/").text
+    assert "prefers-reduced-motion" in html
+    assert 'class="skip"' in html
+    assert 'aria-live="polite"' in html
+    assert 'role="log"' in html
+    assert 'role="progressbar"' in html
+    assert 'aria-expanded="false"' in html
+    # O canvas é decorativo; o estado real é lido por texto (aria-live).
+    assert 'aria-hidden="true"' in html
+    assert 'id="core-state"' in html
+
+
+def test_hud_declara_que_nao_abre_microfone(client):
+    """Voz roda em processo separado — o HUD não pode simular captura."""
+    html = client[0].get("/").text
+    assert "python -m ultron_2_0.voice" in html
+    assert "não abre microfone" in html
+
+
 def test_status_reflete_o_nucleo_real(client):
     test_client, bridge = client
     body = test_client.get("/api/status").json()
@@ -244,4 +265,84 @@ def test_hud_recusa_e_rejeita_replay_e_id_desconhecido(client):
 
     unknown = test_client.post("/api/approvals/inexistente/approve")
     assert unknown.status_code == 404
+
+
+def test_decisao_aprovada_registra_atividade_real(client):
+    """A decisão aprovada entra no feed de atividade (bug do action_id)."""
+    test_client, bridge = client
+    action = bridge.runtime.authorization.request("forget", {"key": "cor"})
+
+    approved = test_client.post(f"/api/approvals/{action.action_id}/approve")
+    assert approved.status_code == 200
+
+    events = test_client.get("/api/activity").json()["events"]
+    approvals = [event for event in events if event["kind"] == "approval"]
+    assert approvals
+    assert approvals[0]["ok"] is True
+    assert approvals[0]["detail"]["action_id"] == action.action_id
+
+
+# -- métricas e atividade reais (Fase 2.5) -----------------------------------
+
+
+def test_system_usa_as_metricas_reais_do_host(client, monkeypatch):
+    import ultron_2_0.web.app as web_app
+
+    sample = {
+        "cpu_percent": 12.5,
+        "ram_percent": 43.2,
+        "ram_used_gb": 3.1,
+        "ram_total_gb": 7.7,
+        "cpu_temp_c": 51.0,
+        "gpu_percent": None,
+        "uptime": "2h 5m",
+        "process_count": 321,
+    }
+    monkeypatch.setattr(web_app, "system_snapshot", lambda: dict(sample))
+
+    body = client[0].get("/api/system").json()
+    assert body["metrics"] == sample
+    assert body["sampled_at"] > 0
+
+
+def test_system_indisponivel_vira_503_sem_numeros_inventados(client, monkeypatch):
+    import ultron_2_0.web.app as web_app
+
+    def boom():
+        raise RuntimeError("psutil indisponível")
+
+    monkeypatch.setattr(web_app, "system_snapshot", boom)
+    response = client[0].get("/api/system")
+    assert response.status_code == 503
+    assert "indisponível" in response.json()["detail"]
+
+
+def test_activity_registra_turno_e_resposta_do_nucleo(client):
+    test_client, bridge = client
+    bridge.runtime.register_provider(ScriptedProvider(["olá"]))
+
+    assert test_client.get("/api/activity").json() == {"events": [], "scope": "session"}
+    test_client.post("/api/chat", json={"message": "oi"})
+
+    body = test_client.get("/api/activity").json()
+    assert body["scope"] == "session"
+    kinds = [event["kind"] for event in body["events"]]
+    # Mais recente primeiro; resposta e turno são eventos reais do MESMO turno.
+    assert kinds[0] == "reply"
+    assert "turn" in kinds
+    reply = next(event for event in body["events"] if event["kind"] == "reply")
+    assert reply["ok"] is True
+    assert reply["detail"]["elapsed_seconds"] >= 0
+
+
+def test_activity_limite_e_escopo_de_sessao(client):
+    test_client, _bridge = client
+    body = test_client.get("/api/activity?limit=1").json()
+    assert body["scope"] == "session"
+    assert len(body["events"]) <= 1
+
+
+def test_status_expõe_busy_falso_quando_ocioso(client):
+    test_client, _bridge = client
+    assert test_client.get("/api/status").json()["busy"] is False
 

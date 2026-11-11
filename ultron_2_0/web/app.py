@@ -30,7 +30,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
+from ..marklvi_actions import system_snapshot
 from ..voice.audio_io import audio_capabilities
+from .activity import ActivityLog
 
 logger = logging.getLogger("ultron2.web")
 
@@ -68,6 +70,8 @@ def create_app(
     """App FastAPI ligado a um `OrchestratorBridge` já iniciado."""
     app = FastAPI(title="ULTRON 2.0", docs_url=None, redoc_url=None)
     started_at = time.time()
+    activity_log = ActivityLog()
+    inflight = 0
 
     @app.get("/", response_class=HTMLResponse)
     async def index() -> HTMLResponse:
@@ -84,6 +88,32 @@ def create_app(
             **bridge.status(),
             "audio": audio,
             "web_uptime_seconds": round(time.time() - started_at, 1),
+            "busy": inflight > 0,
+        }
+
+    @app.get("/api/system")
+    async def system() -> dict[str, Any]:
+        """Métricas reais do host (mesma função da tool `system_status`).
+
+        Uma falha do psutil vira erro explícito: a interface mostra
+        "indisponível" em vez de números inventados.
+        """
+        try:
+            metrics = await asyncio.to_thread(system_snapshot)
+        except Exception as exc:
+            logger.warning("métricas do sistema indisponíveis: %s", exc)
+            raise HTTPException(
+                status_code=503,
+                detail=f"métricas indisponíveis: {type(exc).__name__}: {exc}",
+            ) from exc
+        return {"metrics": metrics, "sampled_at": time.time()}
+
+    @app.get("/api/activity")
+    async def activity(limit: int = 50) -> dict[str, Any]:
+        """Eventos observados por ESTA sessão do HUD (não é histórico paralelo)."""
+        return {
+            "events": activity_log.recent(max(1, min(limit, 200))),
+            "scope": "session",
         }
 
     @app.get("/api/tools")
@@ -102,19 +132,36 @@ def create_app(
 
     @app.post("/api/chat")
     async def chat(body: ChatBody) -> dict[str, Any]:
+        nonlocal inflight
         if bridge.runtime.orchestrator is None:
             raise HTTPException(status_code=503, detail="núcleo não iniciado")
         kwargs = {"provider": body.provider} if body.provider else {}
+        inflight += 1
+        activity_log.record(
+            "turn",
+            f"turno recebido ({len(body.message)} caracteres)",
+            detail={"provider": body.provider or "padrão"},
+        )
+        started = time.monotonic()
         try:
             response = await asyncio.to_thread(
                 bridge.process_text, body.message, **kwargs
             )
         except Exception as exc:
+            elapsed = round(time.monotonic() - started, 2)
+            activity_log.record(
+                "error",
+                f"falha no turno: {type(exc).__name__}",
+                detail={"elapsed_seconds": elapsed},
+                ok=False,
+            )
             logger.exception("falha ao processar turno pela web")
             raise HTTPException(
                 status_code=502,
                 detail=f"{type(exc).__name__}: {exc}",
             ) from exc
+        finally:
+            inflight -= 1
 
         # Rastro de ferramentas vem do histórico persistido (ChatResponse não
         # carrega raw_metadata — contrato do lain).
@@ -126,6 +173,26 @@ def create_app(
                 tool_calls = assistant[-1].get("tool_calls", [])
         except Exception:  # histórico é diagnóstico; a resposta já está pronta
             logger.debug("não foi possível ler tool_calls do histórico")
+
+        elapsed = round(time.monotonic() - started, 2)
+        for call in tool_calls:
+            activity_log.record(
+                "tool",
+                f"{call.get('tool', '?')} · {'ok' if call.get('ok') else 'falhou'}",
+                detail=call,
+                ok=bool(call.get("ok")),
+            )
+        activity_log.record(
+            "reply",
+            f"resposta de {getattr(response, 'provider', None) or 'provedor'} "
+            f"em {elapsed}s",
+            detail={
+                "model": getattr(response, "model", None),
+                "elapsed_seconds": elapsed,
+                "tools": len(tool_calls),
+            },
+            ok=True,
+        )
 
         usage = getattr(response, "usage", None)
         return {
@@ -140,11 +207,13 @@ def create_app(
                 "total_tokens": getattr(usage, "total_tokens", 0),
             },
             "tool_calls": tool_calls,
+            "elapsed_seconds": elapsed,
         }
 
     @app.post("/api/new")
     async def new_conversation() -> dict[str, Any]:
         bridge.new_conversation()
+        activity_log.record("conversation", "nova conversa iniciada")
         return {"conversation_id": None, "status": "new-conversation"}
 
     # -- autorização interativa (Fase 2 do ULTRON 2.1) ------------------------
@@ -157,14 +226,18 @@ def create_app(
 
     @app.post("/api/approvals/{action_id}/approve")
     async def approve(action_id: str) -> dict[str, Any]:
-        return _decide(lambda: bridge.approve_action(action_id))
+        return _decide(action_id, "approved", lambda: bridge.approve_action(action_id))
 
     @app.post("/api/approvals/{action_id}/reject")
     async def reject(action_id: str, body: RejectBody | None = None) -> dict[str, Any]:
         reason = body.reason if body is not None else "rejected by user"
-        return _decide(lambda: bridge.reject_action(action_id, reason))
+        return _decide(
+            action_id, "rejected", lambda: bridge.reject_action(action_id, reason)
+        )
 
-    def _decide(operation: Callable[[], dict[str, Any]]) -> dict[str, Any]:
+    def _decide(
+        action_id: str, decision: str, operation: Callable[[], dict[str, Any]]
+    ) -> dict[str, Any]:
         from ..authorization import (
             AuthorizationDenied,
             AuthorizationError,
@@ -174,13 +247,21 @@ def create_app(
         )
 
         try:
-            return {"ok": True, "action": operation()}
+            result = operation()
         except UnknownAction as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except (ExpiredToken, TokenAlreadyUsed, AuthorizationDenied) as exc:
+            activity_log.record("approval", f"{decision} recusado: {exc}", ok=False)
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except AuthorizationError as exc:  # pragma: no cover - base defensiva
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        activity_log.record(
+            "approval",
+            f"{result.get('tool', 'ação')} · {decision}",
+            detail={"action_id": action_id, "status": result.get("status")},
+            ok=decision == "approved",
+        )
+        return {"ok": True, "action": result}
 
     return app
 

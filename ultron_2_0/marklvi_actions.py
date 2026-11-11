@@ -222,3 +222,23 @@ def _expected_errors_for(name: str) -> list[str]:
         "reminder": ["scheduler unavailable", "invalid date/time"],
         "system_status": ["psutil failure"],
     }.get(name, [])
+
+
+# -- leitura direta para interfaces (HUD) --------------------------------------
+# O HUD mostra métricas do host no painel esquerdo. Para não duplicar a lógica
+# de `actions/system_monitor.py` (psutil, temperatura, GPU), a interface chama
+# a MESMA função usada pela tool `system_status`. O módulo é carregado uma vez
+# e reutilizado; uma falha do psutil propaga e o endpoint responde com erro
+# explícito em vez de inventar números.
+
+_system_status_fn: Any | None = None
+
+
+def system_snapshot(project_root: str | Path | None = None) -> dict[str, Any]:
+    """Snapshot real de CPU/RAM/temp/GPU/uptime (fonte: action do Mark-LVI)."""
+    global _system_status_fn
+    if _system_status_fn is None:
+        _, _, marklvi_root = ensure_sys_paths(project_root)
+        module = _load_action_module(marklvi_root, "system_monitor")
+        _system_status_fn = getattr(module, "get_system_status")
+    return dict(_system_status_fn())
