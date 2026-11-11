@@ -49,6 +49,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+from .memory_backup import backup_memory, restore_memory
+from .memory_encryption import MemoryEncryption, generate_key_file
+from .memory_semantic import SemanticIndex
 from .memory_tools import (
     MEMORY_CATEGORIES,
     FactMemory,
@@ -1186,3 +1189,169 @@ class MemoryEngine:
         if record.scope not in _CANONICAL_SCOPES or record.memory_type not in DURABLE_TYPES:
             return
         self.facts.remember(record.key, record.value, record.category)
+
+    # -- Fase 6: busca semântica opcional -------------------------------------
+    @property
+    def semantic_index(self) -> SemanticIndex:
+        """Índice semântico OPCIONAL (lazy). Sem embeddings, desativa graciosamente."""
+        if not hasattr(self, "_semantic_index_instance"):
+            self._semantic_index_instance = SemanticIndex()
+        return self._semantic_index_instance
+
+    def search_semantic(
+        self,
+        query: str,
+        *,
+        top_k: int = 8,
+        scopes: Iterable[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Busca semântica sobre registros de memória.
+
+        Requer `sentence-transformers` instalado. Se indisponível, devolve
+        lista vazia e o chamador deve cair de volta para `search` (léxica).
+        Nunca levanta exceção por falta de dependência.
+        """
+        idx = self.semantic_index
+        if not idx.available:
+            return []
+        allowed_scopes = tuple(scopes) if scopes is not None else self.read_scopes
+        allowed_scopes = tuple(_validate_scope(s) for s in allowed_scopes)
+        with self._lock:
+            records = [r.as_dict() for r in self._ensure_loaded() if r.valid and r.scope in allowed_scopes]
+        if not records:
+            return []
+        idx.index_records(records)
+        return idx.query(query, top_k=top_k)
+
+    def retrieve_hybrid(
+        self,
+        query: str = "",
+        *,
+        scopes: Iterable[str] | None = None,
+        limit: int = 8,
+        budget_chars: int | None = None,
+        semantic_weight: float = 0.5,
+    ) -> list[dict[str, Any]]:
+        """Recuperação híbrida: mescla busca léxica (`search`) com semântica.
+
+        A busca léxica (já existente) é sempre executada; a semântica só
+        contribui quando o índice está disponível. Os resultados são
+        unificados por `id`, com pontuação combinada. Sem embeddings, resulta
+        equivalente à busca léxica (recuperação lexical preservada).
+        """
+        semantic_weight = max(0.0, min(1.0, float(semantic_weight)))
+        lexical = self.search(query, scopes=scopes, limit=max(limit, 1))
+        lexical_by_id = {item.record.id: item for item in lexical}
+
+        semantic = self.search_semantic(query, top_k=max(limit, 1), scopes=scopes)
+        semantic_by_id = {r["id"]: r for r in semantic if r.get("id")}
+
+        combined: dict[str, dict[str, Any]] = {}
+        for item in lexical:
+            combined[item.record.id] = {
+                "record": item.record.as_dict(),
+                "score": item.score * (1.0 - semantic_weight),
+                "matched": list(item.matched),
+                "source": "lexical",
+            }
+        for rec in semantic_by_id.values():
+            rid = rec["id"]
+            if rid in combined:
+                combined[rid]["score"] += rec.get("score", 0) * semantic_weight
+                combined[rid]["source"] = "hybrid"
+            else:
+                combined[rid] = {
+                    "record": rec,
+                    "score": rec.get("score", 0) * semantic_weight,
+                    "matched": [],
+                    "source": "semantic",
+                }
+
+        ordered = sorted(
+            combined.values(), key=lambda item: item["score"], reverse=True
+        )[: max(1, int(limit))]
+
+        if budget_chars is not None:
+            budget = max(0, int(budget_chars))
+            selected: list[dict[str, Any]] = []
+            used = 0
+            for item in ordered:
+                rec = item["record"]
+                cost = len(str(rec.get("key", ""))) + len(str(rec.get("value", ""))) + 24
+                if selected and used + cost > budget:
+                    break
+                selected.append(item)
+                used += cost
+            ordered = selected
+
+        return ordered
+
+    # -- Fase 6: backup e restauração -----------------------------------------
+    def backup(self, dest_zip: str | Path) -> dict[str, Any]:
+        """Faz backup dos arquivos de memória em um ZIP (não destrutivo).
+
+        Delegado a `memory_backup.backup_memory`. Não expor credenciais:
+        o manifesto contém apenas contagens e caminhos.
+        """
+        return backup_memory(self.path.parent, dest_zip)
+
+    def restore(self, source_zip: str | Path, *, confirm: bool = False) -> dict[str, Any]:
+        """Restaura arquivos de memória a partir de um ZIP.
+
+        Requer `confirm=True` (operação destrutiva explícita). Só restaura
+        os três arquivos canônicos da memória do 2.0.
+        """
+        return restore_memory(source_zip, self.path.parent, confirm=confirm)
+
+    # -- Fase 6: criptografia opcional em repouso -----------------------------
+    @property
+    def encryption(self) -> MemoryEncryption:
+        """Criptografia OPCIONAL em repouso (lazy). Sem `cryptography`, desativa."""
+        if not hasattr(self, "_encryption_instance"):
+            self._encryption_instance = MemoryEncryption()
+        return self._encryption_instance
+
+    def encryption_status(self) -> dict[str, Any]:
+        """Status observável da criptografia (sem expor a chave)."""
+        return self.encryption.public()
+
+    def encrypt_memory_file(self, file_path: str | Path) -> dict[str, Any]:
+        """Criptografa um arquivo de memória em sufixo `.enc` (opcional).
+
+        Requer `cryptography` + chave (`ULTRON2_MEMORY_ENCRYPTION_KEY` ou
+        `memory.key`). Não expor a chave nem o conteúdo.
+        """
+        if not self.encryption.available:
+            return {"ok": False, "error": "criptografia não disponível"}
+        src = Path(file_path)
+        if not src.is_file():
+            return {"ok": False, "error": f"arquivo não encontrado: {src}"}
+        try:
+            data = src.read_bytes()
+            enc = self.encryption.encrypt_bytes(data)
+            dst = src.with_name(src.name + ".enc")
+            dst.write_bytes(enc)
+            logger.info("arquivo de memória criptografado: %s", dst)
+            return {"ok": True, "encrypted_path": str(dst)}
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("falha ao criptografar %s: %s", src, exc)
+            return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+
+    def decrypt_memory_file(self, file_path: str | Path, dest_path: str | Path | None = None) -> dict[str, Any]:
+        """Descriptografa um arquivo `.enc` de volta (opcional)."""
+        if not self.encryption.available:
+            return {"ok": False, "error": "criptografia não disponível"}
+        src = Path(file_path)
+        if not src.is_file():
+            return {"ok": False, "error": f"arquivo não encontrado: {src}"}
+        dst = Path(dest_path) if dest_path else src.with_name(src.name.removesuffix(".enc"))
+        try:
+            data = src.read_bytes()
+            dec = self.encryption.decrypt_bytes(data)
+            dst.write_bytes(dec)
+            logger.info("arquivo de memória descriptografado: %s", dst)
+            return {"ok": True, "decrypted_path": str(dst)}
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("falha ao descriptografar %s: %s", src, exc)
+            return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+
