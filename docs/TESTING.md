@@ -1,0 +1,90 @@
+# TESTING — testes, resultados e limitações
+
+## 1. Como executar
+
+```bash
+# suíte do ULTRON 2.0 (109 testes)
+cd ultron-2.0
+./.venv/bin/python -m pytest -q
+
+# regressão do núcleo original (64 testes, projeto não modificado)
+cd ../lain
+./.venv/bin/python -m pytest -q
+```
+
+O `pytest` do 2.0 usa `asyncio_mode="auto"`, banco `sqlite+aiosqlite:///:memory:`
+na maioria dos testes e um provedor scriptável (`tests/fakes.py`) que implementa
+o contrato real `LLMProvider` — não é mock de unidade: exercita o orquestrador,
+o proxy de ferramentas e a persistência reais sem rede.
+
+## 2. Cobertura por arquivo (109 testes)
+
+| Arquivo | Testes | O que valida |
+|---|---|---|
+| `tests/test_bootstrap.py` | 6 | raízes absolutas, `sys.path` idempotente, banco isolado, `.env` do lain sem CWD |
+| `tests/test_core_runtime.py` | 5 | wiring do núcleo, providers, ciclo de vida, banco em memória |
+| `tests/test_bridge.py` | 5 | conversa única pela interface, `/status`, CLI `--demo`, one-shot, banco próprio |
+| `tests/test_tool_gateway.py` | 11 | allowlist, obrigatórios, tipos/coerção, parâmetros desconhecidos, timeout, confirmação, exceções |
+| `tests/test_tool_loop.py` | 9 | protocolo JSON, resultado como dado, teto de rodadas, streaming único, provider sem tools |
+| `tests/test_integration_tools.py` | 2 | `system_status` real pelo gateway; subset curado registrado |
+| `tests/test_memory_tools.py` | 8 | `remember`/`recall`/`forget`, categorias, recusa de `forget`, nada automático, `long_term.json` intocado |
+| `tests/test_memory_engine.py` | 17 | tipos, escopo, dedupe, versão, exclusão autorizada, consolidação, orçamento, expiração, injeção no prompt, tools pelo motor |
+| `tests/test_docs.py` | 4 | caminhos obrigatórios, índice sem fantasmas, links internos, ponteiro de contexto |
+| `tests/test_voice_units.py` | 14 | contratos, PCM/WAV, comandos de dispositivo, mime/rate, extração de áudio, `SystemSpeaker`, falhas |
+| `tests/test_voice_pipeline.py` | 6 | transcript → núcleo, `handle_audio`, TTS opcional, mesmo `conversation_id`, turno vazio |
+| `tests/test_faults.py` | 10 | Teste G: provedor, microfone, subprocesso, player, STT, parâmetro, tool inexistente, TTS, fluxo voz→tool→voz |
+| `tests/test_web.py` | 11 | HUD: HTML/tokens, status real, tools, chat + histórico, `/api/new`, 502, entrada inválida, bind local |
+
+## 3. Mapa com os testes do AGENTS.md
+
+| Teste | Onde é coberto | Evidência |
+|---|---|---|
+| **A — Inicialização** | `test_bootstrap`, `test_core_runtime`, `test_bridge`, `test_web` | núcleo sobe, settings/providers carregam, banco isolado criado, sem import circular |
+| **B — Conversação por texto** | `test_bridge`, `test_web` | mensagem → orquestrador → provider → resposta → persistência |
+| **C — STT** | `test_voice_units`, `test_voice_pipeline`, `test_faults` | comandos reais de microfone, transcrição em lote, queda de conexão, microfone ausente |
+| **D — TTS** | `test_voice_units`, `test_voice_pipeline`, `test_faults` | síntese/reprodução, falha de player, recuperação no turno seguinte |
+| **E — Ferramentas** | `test_tool_gateway`, `test_tool_loop`, `test_integration_tools` | descoberta/contrato/validação/autorização/execução/interpretação |
+| **F — Fluxo completo** | `test_faults::test_fluxo_completo_voz_tool_voz...` | fala → núcleo → tool real → texto → TTS, **uma** conversa |
+| **G — Falhas controladas** | `test_faults` (10) | provedor, dispositivo, subprocesso, conexão, parâmetro, timeout, tool inexistente, TTS |
+
+## 4. Resultados registrados
+
+| Data | Suíte | Resultado |
+|---|---|---|
+| 2026-11-10 | ULTRON 2.0 (`ultron-2.0/.venv`) | **109 passed** |
+| 2026-11-10 | Memória (`tests/test_memory_engine.py`) | **17 passed** |
+| 2026-11-10 | Regressão lain (`lain/.venv`) | **64 passed** |
+| 2026-11-10 | Smoke HTTP do HUD (`127.0.0.1:8799`) | `/` 200 (14 522 bytes), `/api/status`, `/api/tools`, `/api/chat`, `/api/history` reais |
+| 2026-11-10 | `python -m ultron_2_0.voice --list-devices` | `parec` + `aplay` detectados; taxas 16 kHz/24 kHz |
+
+## 5. Integridade dos projetos originais
+
+Verificações executadas:
+
+- `lain/ultron.db` com **12 conversas / 48 mensagens**, inalterado;
+- `Mark-LVI-main/memory/long_term.json` com mtime inalterado (teste dedicado);
+- `Mark-LVI-main/config/api_keys.json` inexistente e não criado;
+- nenhum arquivo de `lain/` ou `Mark-LVI-main/` alterado pelo 2.0;
+- banco padrão do 2.0 sempre em `ultron-2.0/data/ultron2.db` (teste de bootstrap).
+
+## 6. Limitações dos testes (honestas)
+
+O que a suíte **não** cobre:
+
+- chamadas reais ao Gemini (texto, Live/*STT* e TTS) — exigiriam rede/quota; os
+  testes usam provedores scriptáveis e exercitam apenas os caminhos de código;
+- execução real de `open_app`, `web_search` e `reminder` — efeitos externos;
+  apenas `system_status` é executado de verdade (não destrutivo);
+- microfone/alto-falante físicos — o ambiente tem `parec`/`aplay`, mas os testes
+  usam subprocessos controlados;
+- wake word, VAD e barge-in — não implementados, portanto não testados;
+- confirmação interativa — não implementada; o teste valida a **recusa** segura;
+- busca semântica/embeddings — não implementados, portanto não testados;
+- memória: dois processos concorrentes no mesmo arquivo, corrupção de escrita
+  induzida e qualidade de recuperação (precisão/recall) não são medidos; a
+  injeção usa provedor scriptável, sem chamada real ao Gemini;
+- carga/concorrência e uso prolongado de memória — não medidos;
+- HUD em navegador real — validado por HTTP e pelo conteúdo do HTML, não por
+  teste de UI automatizado.
+
+Nenhuma dessas lacunas é apresentada como funcionalidade concluída.
