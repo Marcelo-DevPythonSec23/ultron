@@ -96,7 +96,7 @@ Componentes reais (detalhes em `docs/context/MODULE_MAP.md`):
 | Actions de escrita/execução | `BLOCKED` por segurança | `docs/INTEGRATION_MAP.md` |
 | Model Router | `IMPLEMENTED` | `ultron_2_0/routing/`, `tests/test_routing.py` (41), modo `auto` opt-in |
 | Sistema Multiagente | `IMPLEMENTED` | `ultron_2_0/agents/`, `tests/test_agents.py` (19), 6 agentes iniciais |
-| MCP / agentes externos | `PLANNED` | — |
+| MCP / agentes externos (Fase 5) | `IMPLEMENTED` | `ultron_2_0/integrations/`, `tests/test_integrations.py` (19), OpenCode + MCP |
 
 ## 5. Restrições
 

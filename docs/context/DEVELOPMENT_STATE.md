@@ -73,7 +73,7 @@ ultron-2.0/ultron_2_0/
 | 2.5 — Interface (`INTERFACE.md`) | `IMPLEMENTED` | auditoria + HUD reconstruído (`docs/ui/`), 21 testes de HUD, 136 verdes |
 | 3 — Model Router | `IMPLEMENTED` | `ultron_2_0/routing/`, `tests/test_routing.py` (41), modo `auto`, fallback opt-in |
 | 4 — Multiagente | `IMPLEMENTED` | `ultron_2_0/agents/`, `tests/test_agents.py` (19), 6 agentes iniciais, integrado ao runtime |
-| 5 — CLI/MCP | `PLANNED` | sem adaptadores |
+| 5 — CLI/MCP | `IMPLEMENTED` | `ultron_2_0/integrations/`, `tests/test_integrations.py` (19), OpenCode + MCP, integrado ao runtime |
 | 6 — Evolução da memória | `PARTIAL` | lexical implementado; embeddings/cripto/backup `PLANNED` |
 | 7 — Autonomia operacional | `PLANNED` | sem planner/workflow |
 | 8 — Validação/estabilização | `PARTIAL` | suítes atuais verdes; faltam testes das fases novas |
@@ -98,7 +98,8 @@ ultron-2.0/ultron_2_0/
 | `test_docs.py` | 5 | caminhos/índice/links documentais |
 | `test_routing.py` | 41 | Model Router: tarefa, catálogo, política, retry, fallback, timeout, streaming, config env, modo `auto`, integração bridge |
 | `test_agents.py` | 19 | Sistema Multiagente (Fase 4): registro/descoberta, ciclo de vida, execução, validação, falha/replanejamento, concorrência/isolamento de arquivos, status sem credenciais, integração runtime/bridge |
-| **Total** | **196** | |
+| `test_integrations.py` | 19 | Integrações externas (Fase 5): build_command OpenCode, parse de saída JSON/texto, sanitização de segredos, integração desabilitada, comando não encontrado, timeout, registro/habilitar/desabilitar, orquestrador (tarefa, não registrada, desabilitada), status sem credenciais, integração runtime/bridge |
+| **Total** | **215** | |
 
 Regressão do núcleo: **64** testes em `lain/`.
 

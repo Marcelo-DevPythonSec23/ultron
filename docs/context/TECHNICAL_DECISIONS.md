@@ -287,6 +287,49 @@ regressão lain **64 passed**, `secret_leak` equivalente no status do bridge.
 
 ---
 
+## ADR-016 — Integrações externas: agentes CLI e MCP (Fase 5)
+
+**Status:** Aceita
+**Contexto:** o ULTRON precisa se conectar a agentes/servidores externos
+(OpenCode CLI, servidores MCP) sem perder o controle central do fluxo de
+execução, respeitando a regra de não criar um segundo orquestrador
+conversacional.
+**Alternativas:** (a) incorporar cada agente externo diretamente no núcleo
+(rejeitado — acoplamento e risco); (b) adaptadores independentes sobre as
+interfaces reais de cada ferramenta, processos isolados com timeout e controle
+de permissões por integração.
+**Decisão:** (b) — criar pacote `ultron_2_0/integrations/` com
+`IntegrationOrchestrator` (coordena tarefas), `IntegrationRegistry` (registro,
+habilitar/desabilitar por target), `ExternalIntegration` (subprocesso isolado
+sem shell=True, timeout com `asyncio.wait_for`, `sanitize_output`),
+`OpenCodeAdapter` (interface real `opencode run [--format json] ...`) e
+`MCPAdapter` (interface real `opencode mcp list`).
+**Regras de projeto:**
+- inspecionar interfaces reais; não inventar comandos, APIs ou contratos;
+- adaptadores independentes por integração;
+- processos externos isolados (subprocesso, nunca shell=True);
+- limites de execução (timeout por integração);
+- registrar tarefas e resultados (`IntegrationTask`/`IntegrationResult`);
+- controle de permissões por integração (habilitar/desabilitar individualmente);
+- permitir desativar cada integração individualmente;
+- resultados de agentes externos são dados não confiáveis até validar;
+- não aplicar resultados automaticamente à memória canônica.
+**Justificativa:** conexão com inteligência externa sem perder a autoridade
+central do ULTRON; isolamento de processos externos; falhas de integração não
+derrubam o núcleo; compatibilidade com o `ProviderRegistry` (Fase 3) e com o
+`AgentOrchestrator` (Fase 4) preservadas.
+**Consequências:** `core_runtime.py` cria `IntegrationOrchestrator()` e
+registra `OpenCodeAdapter()` + `MCPAdapter()`; `orchestrator_bridge.py` expõe
+`status()["integrations"]`; `IntegrationOrchestrator` não toca no histórico,
+memória canônica nem `process_text`.
+**Evidência:** `tests/test_integrations.py` (19 testes), suíte 2.0 com
+**215 passed**, regressão lain **64 passed**, status sem credenciais.
+**Fontes:** `ultron_2_0/integrations/`, `tests/test_integrations.py`,
+`ultron_2_0/core_runtime.py`, `ultron_2_0/orchestrator_bridge.py`,
+`docs/INTEGRACOES.md`.
+
+---
+
 ## Modelo para novas decisões
 
 ```markdown

@@ -26,6 +26,7 @@ Orchestrator do lain          ← ÚNICO ciclo de conversa, contexto e persistê
   │              └── ToolCallingProvider ← extensão 2.0, mesmo provider_id
   │                    └── ToolGateway   ← allowlist, validação, timeout, auditoria
   M-bM-^TM-^B                    M-bM-^TM-^TM-bM-^TM-^@M-bM-^TM-^@ AgentOrchestrator  (Fase 4: coordenação de agentes especializados; não é orquestrador conversacional)
+  M-bM-^TM-^B                    M-bM-^TM-^TM-bM-^TM-^@M-bM-^TM-^@ IntegrationOrchestrator  (Fase 5: integracao CLI/MCP; nao e orquestrador conversacional)
   │                          └── actions do Mark-LVI (worker threads)
   ▼
 Sistema operacional
@@ -208,6 +209,39 @@ Regras de projeto (AGENTS.md §4, §5):
 
 Integrado a `core_runtime.py` (6 agentes iniciais registrados) e exposto via
 `orchestrator_bridge.status()["agents"]`.
+
+### 3.3c Integrações externas — Agentes CLI e MCP (Fase 5)
+
+O `IntegrationOrchestrator` (`ultron_2_0/integrations/integration_orchestrator.py`)
+coordena tarefas delegadas a agentes/servidores externos. Não é um segundo
+orquestrador conversacional: apenas encaminha tarefas especializadas e devolve
+resultados para avaliação do ULTRON, sem tocar no histórico, memória canônica
+nem no `process_text`.
+
+Componentes do pacote `integrations/`:
+
+| Módulo | Responsabilidade |
+|---|---|
+| `integration_orchestrator.py` | `IntegrationOrchestrator` — cria tarefas, executa via adaptador, isola falhas |
+| `integration_registry.py` | `IntegrationRegistry` — registro, habilitar/desabilitar por target |
+| `contracts.py` | `IntegrationTask`, `IntegrationResult`, `IntegrationType`, `IntegrationState` |
+| `base.py` | `ExternalIntegration` — subprocesso isolado com timeout, sanitização de saída |
+| `cli_adapter.py` | `OpenCodeAdapter` — `opencode run [--format json] ...` (interface real) |
+| `mcp_adapter.py` | `MCPAdapter` — `opencode mcp list` (interface real) |
+
+Regras de projeto (AGENTS.md §4.4, §5.3):
+
+- Inspecionar interfaces reais; não inventar comandos, APIs ou contratos.
+- Adaptadores independentes por integração.
+- Processos externos isolados (subprocesso, sem shell=True).
+- Limites de execução (timeout por integração).
+- Registrar tarefas e resultados.
+- Controlar permissões por integração (habilitar/desabilitar individualmente).
+- Permitir desativar cada integração individualmente.
+- Resultados de agentes externos são dados não confiáveis até validar.
+
+Integrado a `core_runtime.py` (adaptadores OpenCode + MCP registrados) e
+exposto via `orchestrator_bridge.status()["integrations"]`.
 
 ### 3.4 Ferramentas
 

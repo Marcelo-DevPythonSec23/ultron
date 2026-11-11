@@ -230,6 +230,51 @@ Se não houver evidência, o estado é `UNKNOWN`.
   (revisão de ADRs e decisões técnicas).
 - **Estado:** `IMPLEMENTED`. 6 agentes iniciais registrados no runtime.
 
+## 8. Integrações externas — Fase 5 (`ultron-2.0/ultron_2_0/integrations/`)
+
+### `__init__.py`
+- **Responsabilidade:** exporta a API pública de integrações externas
+  (`IntegrationOrchestrator`, `IntegrationRegistry`, `ExternalIntegration`,
+  `OpenCodeAdapter`, `MCPAdapter`, contratos de dados).
+- **Estado:** `IMPLEMENTED`. **Testes:** `tests/test_integrations.py`.
+
+### `contracts.py`
+- **Responsabilidade:** contratos de dados `IntegrationTask`, `IntegrationResult`,
+  `IntegrationType` (cli/mcp), `IntegrationState` e `IntegrationCapability`.
+- **Estado:** `IMPLEMENTED`.
+
+### `base.py`
+- **Responsabilidade:** `ExternalIntegration` — executa processo externo como
+  subprocesso isolado com `asyncio.create_subprocess_exec` (sem shell=True),
+  timeout com `asyncio.wait_for`, parse de saída e sanitização de credenciais
+  (`sanitize_output`).
+- **Estado:** `IMPLEMENTED`.
+
+### `cli_adapter.py`
+- **Responsabilidade:** `OpenCodeAdapter` — adaptador para o agente CLI OpenCode
+  sobre a interface real `opencode run [--format json] [--session] [--model]
+  [--agent] [--auto] <mensagem>`. Parseia saída JSON ou texto bruto.
+- **Estado:** `IMPLEMENTED`.
+
+### `mcp_adapter.py`
+- **Responsabilidade:** `MCPAdapter` — adaptador para servidores MCP sobre a
+  interface real `opencode mcp list`. Lista servidores configurados; execução
+  de tarefa MCP real requer servidor ativo (nao disponível neste ambiente),
+  relatado de forma controlada.
+- **Estado:** `IMPLEMENTED`.
+
+### `integration_registry.py`
+- **Responsabilidade:** `IntegrationRegistry` — catalogo de integracões
+  registradas, habilitar/desabilitar individualmente por target, listar por tipo.
+- **Estado:** `IMPLEMENTED`.
+
+### `integration_orchestrator.py`
+- **Responsabilidade:** `IntegrationOrchestrator` — cria tarefas de integracao,
+  executa via adaptador registrado com timeout, isola falhas, nao e um segundo
+  orquestrador conversacional (nao toca historico/memoria/process_text).
+- **Estado:** `IMPLEMENTED`. Integrado a `core_runtime.py` (OpenCode + MCP
+  registrados) e exposto via `orchestrator_bridge.status()["integrations"]`.
+
 ## 2. Voz (`ultron-2.0/ultron_2_0/voice/`)
 
 | Módulo | Responsabilidade | Estado | Testes |
