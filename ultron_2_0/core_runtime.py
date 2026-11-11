@@ -97,6 +97,7 @@ class UltronCoreRuntime:
         self._engine = None
         self._session_factory = None
         self._session = None
+        self.agent_orchestrator = None  # AgentOrchestrator (Fase 4)
 
     @property
     def project_root(self) -> Path:
@@ -239,6 +240,33 @@ class UltronCoreRuntime:
             "ligado" if self.router.config.enabled else "desligado",
             ", ".join(self.gateway.names()) if self.gateway else "(desligadas)",
         )
+
+        # Fase 4: Sistema Multiagente — orquestrador de agentes especializados.
+        # Não é um segundo orquestrador conversacional: coordena agentes sob
+        # solicitação do ULTRON, sem tocar no histórico, memória canônica nem
+        # no process_text. Agentes iniciais usam ferramentas existentes (não
+        # criam modelos próprios para o que já existe).
+        from .agents import (
+            AgentOrchestrator,
+            ArchitectureAgent,
+            DatabaseAgent,
+            DeveloperAgent,
+            QAAgent,
+            ResearchAgent,
+            SecurityAgent,
+        )
+
+        self.agent_orchestrator = AgentOrchestrator(max_concurrent=3)
+        self.agent_orchestrator.register_agent(DeveloperAgent())
+        self.agent_orchestrator.register_agent(ResearchAgent())
+        self.agent_orchestrator.register_agent(SecurityAgent(gateway=self.gateway))
+        self.agent_orchestrator.register_agent(QAAgent())
+        self.agent_orchestrator.register_agent(DatabaseAgent())
+        self.agent_orchestrator.register_agent(ArchitectureAgent())
+        logger.info(
+            "Multiagente pronto (tipos=%s)",
+            ", ".join(self.agent_orchestrator.list_agent_types()),
+        )
         return self
 
     def _wrap(self, provider):
@@ -323,6 +351,7 @@ class UltronCoreRuntime:
             self._engine = None
         self.orchestrator = None
         self.router = None
+        self.agent_orchestrator = None
         logger.info("Núcleo ULTRON 2.0 encerrado.")
 
     # -- ponte síncrona -------------------------------------------------------

@@ -163,4 +163,9 @@ class OrchestratorBridge:
             "memory": str(runtime.memory.path) if runtime.memory else None,
             "pending_approvals": len(self.pending_actions()),
             "router": runtime.router.status() if runtime.router is not None else None,
+            "agents": (
+                runtime.agent_orchestrator.status()
+                if runtime.agent_orchestrator is not None
+                else None
+            ),
         }
