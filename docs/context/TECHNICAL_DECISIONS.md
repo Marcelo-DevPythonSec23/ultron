@@ -122,10 +122,12 @@ só quando validadas por teste. Ver `docs/memory/MEMORY_ARCHITECTURE.md`.
 
 ## ADR-010 — Nenhum Model Router fictício
 
-**Status:** Aceita
+**Status:** Substituída por ADR-014
 **Contexto:** AGENTS.md §8 pede desacoplamento, mas proíbe roteador fictício.
-**Decisão:** manter o `ProviderRegistry` do lain como autoridade; seleção por
+**Decisão (original):** manter o `ProviderRegistry` do lain como autoridade; seleção por
 `provider`/`model` na requisição. Roteamento automático fica `PLANNED`.
+**Substituição:** ADR-014 implementa o `ModelRouter` real (Fase 3) envolvendo o
+`ProviderRegistry` sem modificá-lo.
 **Fontes:** `core_runtime.py`, `docs/ARCHITECTURE.md`.
 
 ---
@@ -184,6 +186,59 @@ métricas e atividade vêm de fontes reais; animações respeitam
 **Evidência:** `docs/ui/` (5 documentos), `web/activity.py`,
 `marklvi_actions.system_snapshot`, `test_web.py` (21), 136 testes verdes.
 **Fontes:** `INTERFACE.md`, `ultron_2_0/web/`.
+
+---
+
+## ADR-014 — Model Router (Fase 3)
+
+**Status:** Aceita
+**Contexto:** o ULTRON precisa coordenar múltiplos provedores de IA, selecionar
+o modelo conforme o tipo de tarefa e aplicar fallback com timeout/retry, sem
+criar um segundo orquestrador conversacional nem expor credenciais.
+**Alternativas:** (a) substituir o `ProviderRegistry` do lain; (b) envolver o
+registry com uma camada de seleção/encaminhamento (duck typing); (c) roteador
+fictício sem execução real (rejeitado por AGENTS.md §8).
+**Decisão:** (b) — criar `ModelRouter` em `ultron_2_0/routing/` que envolve o
+`ProviderRegistry` existente (continua sendo a autoridade de registro) e é
+passado ao `Orchestrator` no lugar do registry. Componentes: `ModelRouter`,
+`RouterConfig`, `RoutingProvider`, `ModelCatalog`, `ModelCapabilities`,
+`TaskType`, `infer_task_type`, `ModelSelectionPolicy`, `Candidate`,
+`ProviderAdapter`, `FallbackManager`, `RetryManager`, `RetryPolicy`,
+`MetricsRegistry`. Componentes reais do contrato `LLMProvider` são usados
+(`StubProvider` em testes, `mock`/`gemini` em produção) — sem roteador fictício.
+**Regras de projeto:**
+- o provedor padrão continua sendo o primário; a política ordena os demais
+  apenas como fallback;
+- fallback entre provedores é **opt-in** (`ULTRON_ROUTER_FALLBACK`, default 0)
+  — trocar silenciosamente de provedor muda custo/privacidade;
+- `mock` nunca é fallback automático (`allow_mock_fallback`);
+- provedor/modelo escolhidos explicitamente são respeitados e desligam o
+  fallback daquele turno;
+- em `mode="auto"` (opt-in via `ULTRON_ROUTER_MODE`), a política escolhe o
+  provedor por tipo de tarefa e `RoutingProvider.default_model` retorna o
+  sentinela `"auto"`; o modelo real é escolhido por tarefa e gravado na
+  mensagem do assistente;
+- retry classifica transitórios (rate limit/unavailable/timeout/connection/
+  response) como repetíveis e definitivos (auth/access/invalid/not found) como
+  não repetíveis; a última exceção é propagada sem embrulho;
+- overrides de modelo por tarefa (`model_overrides`) são decisões explícitas
+  do catálogo, não dependem de empate de score;
+- métricas e snapshots nunca expõem credenciais (sanitização de erros).
+**Justificativa:** desacoplamento de provedor sem acoplar o núcleo a um único
+fornecedor; `ProviderRegistry` preservado; fallback é explícito, não oculto;
+tempo de execução e falhas isoladas por provedor.
+**Consequências:** `core_runtime.py` cria `ModelRouter(self.registry)` e passa
+`provider_registry=self.router` ao `Orchestrator`; `register_provider` delega
+ao router; `orchestrator_bridge.py` expõe `router_config` e
+`status()["router"]`; CLI exibe estado do roteador; `default_model` no modo
+`auto` retorna `"auto"`.
+**Evidência:** `tests/test_routing.py` (41 testes: 36 originais + 5 do modo
+`auto`), suíte 2.0 com **177 passed**, regressão lain **64 passed**,
+`secret_leak: False` no smoke de status.
+**Fontes:** `ultron_2_0/routing/`, `tests/test_routing.py`,
+`tests/fakes.py` (`StubProvider`), `ultron_2_0/core_runtime.py`,
+`ultron_2_0/orchestrator_bridge.py`, `ultron_2_0/cli.py`,
+`docs/MODEL_ROUTER.md`.
 
 ---
 

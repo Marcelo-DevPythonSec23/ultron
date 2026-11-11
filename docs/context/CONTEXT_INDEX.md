@@ -39,6 +39,7 @@ exige (ver §5 de `CONTEXT.md`).
 | `docs/SECURITY.md` | Segurança | Permissões, validação, confirmação |
 | `docs/context/agents/SECURITY_AGENT.md` | Segurança (papel) | Antes de expor execução |
 | `docs/TESTING.md` | Testes | Antes/depois de qualquer mudança |
+| `docs/MODEL_ROUTER.md` | Model Router (Fase 3) | Antes de alterar roteamento/fallback/retry |
 | `docs/ui/INTERFACE_AUDIT.md` | UI (auditoria) | Antes de alterar o HUD; o que veio da referência |
 | `docs/ui/UI_ARCHITECTURE.md` | UI (arquitetura) | Camadas, contratos HTTP, fluxo do turno |
 | `docs/ui/UI_COMPONENTS.md` | UI (componentes) | Componente → endpoint/dado real |

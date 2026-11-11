@@ -94,7 +94,7 @@ Componentes reais (detalhes em `docs/context/MODULE_MAP.md`):
 | Wake word / VAD / barge-in | `PLANNED` (não existe) | — |
 | Confirmação interativa de ações destrutivas | `PLANNED` (gate recusa) | `test_memory_tools.py` |
 | Actions de escrita/execução | `BLOCKED` por segurança | `docs/INTEGRATION_MAP.md` |
-| Model Router | `PLANNED` (não implementar fictício) | — |
+| Model Router | `IMPLEMENTED` | `ultron_2_0/routing/`, `tests/test_routing.py` (41), modo `auto` opt-in |
 | MCP / agentes externos | `PLANNED` | — |
 
 ## 5. Restrições

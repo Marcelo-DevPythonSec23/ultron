@@ -21,7 +21,8 @@ Orchestrator do lain          ← ÚNICO ciclo de conversa, contexto e persistê
   │  ├── ChatService (SQLite do 2.0)
   │  ├── ContextManager + PromptEngine
   │  └── ProviderRegistry
-  │        └── MemoryInjectionProvider  ← extensão 2.0 (memória por turno)
+  │        └── ModelRouter  (Fase 3: seleção/fallback; não é orquestrador)
+              └── MemoryInjectionProvider  ← extensão 2.0 (memória por turno)
   │              └── ToolCallingProvider ← extensão 2.0, mesmo provider_id
   │                    └── ToolGateway   ← allowlist, validação, timeout, auditoria
   │                          └── actions do Mark-LVI (worker threads)
@@ -96,6 +97,7 @@ Settings → engine + session_factory (banco do 2.0)
 ConversationRepository / MessageRepository
 ChatService → ContextManager → PromptEngine
 ProviderRegistry (mock + gemini quando há chave)
+ModelRouter (Fase 3: seleção/fallback sobre o registry)
 Orchestrator
 ```
 
@@ -128,6 +130,44 @@ Por fora do `ToolCallingProvider` (quando a memória está ativa) fica o
 e o anexa ao `system_instruction`; a identidade do provider é preservada. A
 ordem importa — ferramentas por dentro, memória por fora — para que as rodadas
 internas de ferramenta não disparem nova recuperação.
+
+### 3.3a Model Router (Fase 3)
+
+O `ModelRouter` (`ultron_2_0/routing/router.py`) é uma camada de seleção e
+encaminhamento, **não um segundo orquestrador**. Ele envolve o
+`ProviderRegistry` do lain — que continua sendo a autoridade de registro — e
+é passado ao `Orchestrator` no lugar do registry (duck typing). O contrato do
+lain (`default_provider_id`, `get_provider`, `list_providers`,
+`register_provider`) é preservado.
+
+Componentes do pacote `routing/`:
+
+| Módulo | Responsabilidade |
+|---|---|
+| `router.py` | `ModelRouter`, `RouterConfig`, `RoutingProvider`; `dispatch`/`iter_stream` executam inferência de tarefa → ranking da política → adaptador com timeout → fallback com retry/backoff/cooldown |
+| `capabilities.py` | `TaskType`, `ModelCapabilities`, `infer_task_type` (heurística sem chamada de modelo) |
+| `catalog.py` | `ModelCatalog`, `build_catalog`; overrides de modelo por tarefa são decisões explícitas |
+| `policy.py` | `ModelSelectionPolicy` — ranking determinístico com bônus ao provedor padrão |
+| `retry.py` | `RetryPolicy`/`RetryManager` — backoff exponencial, classificação de erros, última exceção sem embrulho |
+| `fallback.py` | `FallbackManager` — tenta candidatos em ordem; falha de um não impede o próximo |
+| `metrics.py` | `MetricsRegistry` — contadores, cooldown, `sanitize_error` sem credenciais |
+| `adapters.py` | `ProviderAdapter` — fixa modelo na requisição, `asyncio.wait_for`, stream com timeout até o 1º chunk |
+
+Regras de projeto (ADR-014):
+
+- o provedor padrão continua sendo o primário; a política ordena os demais
+  apenas como fallback;
+- fallback entre provedores é **opt-in** (`ULTRON_ROUTER_FALLBACK`, default 0);
+- `mock` nunca é fallback automático (`allow_mock_fallback`);
+- provedor/modelo escolhidos explicitamente são respeitados e desligam o
+  fallback daquele turno;
+- em `mode="auto"` (opt-in via `ULTRON_ROUTER_MODE`), a política escolhe o
+  provedor por tipo de tarefa e `RoutingProvider.default_model` retorna o
+  sentinela `"auto"`; o modelo real é escolhido por tarefa e gravado na
+  mensagem do assistente;
+- retry classifica transitórios como repetíveis e definitivos como não
+  repetíveis; a última exceção é propagada sem embrulho;
+- métricas e snapshots nunca expõem credenciais (`sanitize_error`).
 
 ### 3.4 Ferramentas
 
@@ -166,7 +206,8 @@ completa em `docs/memory/`.
 ### 4.1 Texto
 
 ```text
-CLI/HUD → OrchestratorBridge.process_text → Orchestrator → ProviderRegistry
+CLI/HUD → OrchestratorBridge.process_text → Orchestrator → ModelRouter
+        → ProviderRegistry (autoridade de registro)
         → MemoryInjectionProvider (recupera memória do turno e anexa ao prompt)
         → (ToolCallingProvider → ToolGateway → action) → resposta
         → persistência no SQLite do 2.0 → interface

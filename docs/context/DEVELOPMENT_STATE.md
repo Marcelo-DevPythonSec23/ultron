@@ -58,7 +58,7 @@ ultron-2.0/ultron_2_0/
 | 23b | Atividade da sessão no HUD (`/api/activity`) | `IMPLEMENTED` | `web/activity.py`, `test_web.py` |
 | 24 | Recuperação de falhas (provedor/dispositivo/conexão/tool/TTS) | `IMPLEMENTED` | `test_faults.py` (10) |
 | 25 | Wake word / VAD / barge-in | `PLANNED` | não há código |
-| 26 | Model Router | `PLANNED` | não implementar fictício |
+| 26 | Model Router | `IMPLEMENTED` | `ultron_2_0/routing/` (9 módulos), `tests/test_routing.py` (41), wayback `mode="auto"` |
 | 27 | MCP / agentes externos | `PLANNED` | — |
 | 28 | Actions de escrita/execução do Mark-LVI | `BLOCKED` | risco; ver `INTEGRATION_MAP.md` |
 | 29 | API HTTP do lain (`app/api`) | `DEPRECATED` no 2.0 | HUD próprio substitui |
@@ -71,7 +71,7 @@ ultron-2.0/ultron_2_0/
 | 1 — Documentação/Git | `IMPLEMENTED` | repositório da raiz `3fb03bb`, índice unificado, 0 links quebrados |
 | 2 — Autorização interativa | `IMPLEMENTED` | `authorization.py` + CLI `[s/N]` + HUD `/api/approvals`; 128 testes verdes |
 | 2.5 — Interface (`INTERFACE.md`) | `IMPLEMENTED` | auditoria + HUD reconstruído (`docs/ui/`), 21 testes de HUD, 136 verdes |
-| 3 — Model Router | `PLANNED` | só `ProviderRegistry` + seleção manual |
+| 3 — Model Router | `IMPLEMENTED` | `ultron_2_0/routing/`, `tests/test_routing.py` (41), modo `auto`, fallback opt-in |
 | 4 — Multiagente | `PLANNED` | sem código |
 | 5 — CLI/MCP | `PLANNED` | sem adaptadores |
 | 6 — Evolução da memória | `PARTIAL` | lexical implementado; embeddings/cripto/backup `PLANNED` |
@@ -96,7 +96,8 @@ ultron-2.0/ultron_2_0/
 | `test_faults.py` | 10 | Teste G |
 | `test_web.py` | 21 | HUD + aprovações + métricas/atividade reais |
 | `test_docs.py` | 5 | caminhos/índice/links documentais |
-| **Total** | **136** | |
+| `test_routing.py` | 41 | Model Router: tarefa, catálogo, política, retry, fallback, timeout, streaming, config env, modo `auto`, integração bridge |
+| **Total** | **177** | |
 
 Regressão do núcleo: **64** testes em `lain/`.
 

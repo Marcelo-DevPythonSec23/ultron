@@ -60,6 +60,73 @@ Se não houver evidência, o estado é `UNKNOWN`.
   `[TOOL_RESULT…]` como dado e repete até 4 rodadas.
 - **Estado:** `IMPLEMENTED`. **Testes:** `test_tool_loop.py`.
 
+## 6. Roteamento de modelos — Fase 3 (`ultron-2.0/ultron_2_0/routing/`)
+
+### `__init__.py`
+- **Responsabilidade:** exporta a API pública do pacote de roteamento
+  (`ModelRouter`, `RouterConfig`, `RoutingProvider`, `ModelCatalog`,
+  `ModelCapabilities`, `TaskType`, `infer_task_type`, `ModelSelectionPolicy`,
+  `Candidate`, `FallbackManager`, `RetryManager`, `RetryPolicy`,
+  `MetricsRegistry`, `ProviderAdapter`, `sanitize_error`, `AUTO_MODEL`).
+- **Estado:** `IMPLEMENTED`.
+
+### `router.py`
+- **Responsabilidade:** `ModelRouter` envolve o `ProviderRegistry` do lain
+  (autoridade de registro preservada) e é passado ao `Orchestrator` como
+  `provider_registry` (duck typing). `RoutingProvider` é a fachada observável
+  pelo orquestrador. `dispatch`/`iter_stream` executam inferência de tarefa,
+  ranking da política, adaptador com timeout, fallback com retry/backoff e
+  cooldown; métricas sanitizadas; `default_model` retorna `"auto"` no modo
+  `auto`.
+- **Entrada:** `RouterConfig` por env (`ULTRON_ROUTER_*`), sem credenciais.
+- **Estado:** `IMPLEMENTED`. **Testes:** `tests/test_routing.py`.
+
+### `capabilities.py`
+- **Responsabilidade:** `TaskType` (chat/code/reasoning/long_context/cheap),
+  `ModelCapabilities` (qualidade, janela, ferramentas, streaming, custo, tags),
+  `infer_task_type` heurística determinística sem chamada de modelo, perfis
+  conhecidos (`mock`, `gemini`).
+- **Estado:** `IMPLEMENTED`.
+
+### `catalog.py`
+- **Responsabilidade:** `ModelCatalog` derivado dos provedores registrados;
+  `build_catalog` a partir de `(provider_id, default_model)`; overrides de
+  modelo por tarefa são decisões explícitas (`task_models`), não empate de
+  score; `best_model` respeita override antes do ranking.
+- **Estado:** `IMPLEMENTED`.
+
+### `policy.py`
+- **Responsabilidade:** `ModelSelectionPolicy` ranking determinístico de
+  provedores por aderência à tarefa; `default_bonus` para o provedor padrão;
+  `exclude` e `preferred` para controle do roteador.
+- **Estado:** `IMPLEMENTED`.
+
+### `retry.py`
+- **Responsabilidade:** `RetryPolicy` (max_attempts, backoff exponencial
+  limitado) e `RetryManager` — executa com retry, classifica transitórios como
+  repetíveis e definitivos como não repetíveis, propaga a última exceção sem
+  embrulho.
+- **Estado:** `IMPLEMENTED`.
+
+### `fallback.py`
+- **Responsabilidade:** `FallbackManager` tenta candidatos em ordem com retry
+  por provedor; falha de um não impede o próximo; métricas por provedor; última
+  exceção propagada sem embrulho.
+- **Estado:** `IMPLEMENTED`.
+
+### `metrics.py`
+- **Responsabilidade:** `MetricsRegistry` com contadores de chamadas/sucessos/
+  falhas/retries, latência, cooldown; `sanitize_error` remove padrões de
+  segredo (chave/token) e limita tamanho; snapshot público sem credenciais.
+- **Estado:** `IMPLEMENTED`.
+
+### `adapters.py`
+- **Responsabilidade:** `ProviderAdapter` fixa o modelo do candidato na
+  requisição (cópia, não muta o original), aplica `asyncio.wait_for` e converte
+  estouro para `ProviderTimeoutError`, abre streams com timeout até o primeiro
+  chunk (failover só antes de saída parcial).
+- **Estado:** `IMPLEMENTED`.
+
 ### `marklvi_actions.py`
 - **Responsabilidade:** adaptar 4 actions reais do Mark-LVI:
   `system_status`, `open_app`, `web_search`, `reminder`; `build_gateway()`.
@@ -137,7 +204,7 @@ arquivos listados em `docs/TESTING.md`.
 | `Mark-LVI-main/actions/web_search.py` | ação |
 | `Mark-LVI-main/actions/reminder.py` | ação |
 
-## 6. Fora de escopo / não usados
+## 7. Fora de escopo / não usados
 
 - `Mark-LVI-main/main.py`, `ui.py`, `dashboard/`: runtime/HUD originais.
 - `Mark-LVI-main/core/stt.py`, `core/tts.py`: código morto.
