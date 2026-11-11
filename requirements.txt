@@ -25,3 +25,8 @@ ddgs>=9,<10
 
 # HUD web (Etapa 5) — servidor ASGI já usado pelo lain
 uvicorn>=0.30
+
+# Interface desktop (Fase 2.5 — INTERFACE.md) — PySide6 para janelas, canvas,
+# avatar e animações holográficas. Opcional: a interface funciona sem ela via
+# HUD web; necessária apenas para a aplicação desktop completa.
+PySide6>=6.5
