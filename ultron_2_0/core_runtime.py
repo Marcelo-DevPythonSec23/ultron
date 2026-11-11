@@ -98,6 +98,7 @@ class UltronCoreRuntime:
         self._session_factory = None
         self._session = None
         self.agent_orchestrator = None  # AgentOrchestrator (Fase 4)
+        self.integration_orchestrator = None  # IntegrationOrchestrator (Fase 5)
 
     @property
     def project_root(self) -> Path:
@@ -267,6 +268,26 @@ class UltronCoreRuntime:
             "Multiagente pronto (tipos=%s)",
             ", ".join(self.agent_orchestrator.list_agent_types()),
         )
+
+        # Fase 5: Integracao com agentes CLI e MCP.
+        # Adaptadores independentes sobre interfaces reais do OpenCode
+        # (`opencode run`, `opencode mcp list`). Processos isolados com timeout;
+        # cada integracao pode ser habilitada/desabilitada individualmente.
+        # Nao e um segundo orquestrador conversacional: apenas encaminha
+        # tarefas especializadas a agentes/servidores externos.
+        from .integrations import (
+            IntegrationOrchestrator,
+            MCPAdapter,
+            OpenCodeAdapter,
+        )
+
+        self.integration_orchestrator = IntegrationOrchestrator()
+        self.integration_orchestrator.register_integration(OpenCodeAdapter())
+        self.integration_orchestrator.register_integration(MCPAdapter())
+        logger.info(
+            "Integracoes externas prontas (alvos=%s)",
+            ", ".join(self.integration_orchestrator.list_integrations()["integrations"].keys()),
+        )
         return self
 
     def _wrap(self, provider):
@@ -352,6 +373,7 @@ class UltronCoreRuntime:
         self.orchestrator = None
         self.router = None
         self.agent_orchestrator = None
+        self.integration_orchestrator = None
         logger.info("Núcleo ULTRON 2.0 encerrado.")
 
     # -- ponte síncrona -------------------------------------------------------

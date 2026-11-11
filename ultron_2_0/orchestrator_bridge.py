@@ -168,4 +168,9 @@ class OrchestratorBridge:
                 if runtime.agent_orchestrator is not None
                 else None
             ),
+            "integrations": (
+                runtime.integration_orchestrator.status()
+                if runtime.integration_orchestrator is not None
+                else None
+            ),
         }
