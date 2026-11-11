@@ -115,3 +115,103 @@ async def test_turno_sem_ferramenta_nao_inocula_protocolo_na_resposta():
         assert "tool_calls" not in persisted_meta
     finally:
         await runtime.shutdown()
+
+
+# -- Fase 2: autorização interativa ponta a ponta ----------------------------
+
+
+def _runtime_com_autorizacao(tmp_path, approved):
+    from ultron_2_0.authorization import AuthorizationManager
+
+    seen: list = []
+
+    def confirm(action):
+        seen.append(action)
+        return approved
+
+    runtime = UltronCoreRuntime(
+        database_url="sqlite+aiosqlite:///:memory:",
+        default_provider="mock",
+        enable_tools=True,
+        memory_path=tmp_path / "memory.json",
+        authorization=AuthorizationManager(confirm_handler=confirm),
+    )
+    return runtime, seen
+
+
+async def test_forget_real_so_executa_apos_aprovacao(tmp_path):
+    runtime, seen = _runtime_com_autorizacao(tmp_path, approved=True)
+    try:
+        await runtime.start_async()
+        runtime.memory_engine.remember(
+            "cor_favorita", "vermelho", category="preferences"
+        )
+        assert "vermelho" in runtime.memory_engine.recall("")
+
+        scripted = ScriptedProvider(
+            [
+                json.dumps(
+                    {
+                        "tool": "forget",
+                        "args": {"key": "cor_favorita", "category": "preferences"},
+                    }
+                ),
+                "Fato esquecido.",
+            ]
+        )
+        runtime.register_provider(scripted)
+
+        response = await runtime.chat("esqueça minha cor favorita")
+
+        assert response.content == "Fato esquecido."
+        assert len(seen) == 1
+        assert seen[0].tool_name == "forget"
+        assert "vermelho" not in runtime.memory_engine.recall("")
+
+        messages = await runtime.orchestrator.chat_service.msg_repo.get_messages_by_conversation(
+            conversation_id=response.conversation_id
+        )
+        assistant = [m for m in messages if m.role == "assistant"][-1]
+        calls = json.loads(assistant.raw_metadata or "{}")["tool_calls"]
+        assert calls[0]["tool"] == "forget"
+        assert calls[0]["ok"] is True
+    finally:
+        await runtime.shutdown()
+
+
+async def test_forget_real_nao_executa_quando_recusado(tmp_path):
+    runtime, seen = _runtime_com_autorizacao(tmp_path, approved=False)
+    try:
+        await runtime.start_async()
+        runtime.memory_engine.remember(
+            "cor_favorita", "vermelho", category="preferences"
+        )
+
+        scripted = ScriptedProvider(
+            [
+                json.dumps(
+                    {
+                        "tool": "forget",
+                        "args": {"key": "cor_favorita", "category": "preferences"},
+                    }
+                ),
+                "Não vou apagar sem confirmação.",
+            ]
+        )
+        runtime.register_provider(scripted)
+
+        response = await runtime.chat("esqueça minha cor favorita")
+
+        assert response.content == "Não vou apagar sem confirmação."
+        assert len(seen) == 1
+        # O fato continua na memória: recusa significa NÃO executar.
+        assert "vermelho" in runtime.memory_engine.recall("")
+
+        messages = await runtime.orchestrator.chat_service.msg_repo.get_messages_by_conversation(
+            conversation_id=response.conversation_id
+        )
+        assistant = [m for m in messages if m.role == "assistant"][-1]
+        calls = json.loads(assistant.raw_metadata or "{}")["tool_calls"]
+        assert calls[0]["ok"] is False
+    finally:
+        await runtime.shutdown()

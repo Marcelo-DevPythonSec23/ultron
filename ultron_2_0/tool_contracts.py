@@ -22,6 +22,8 @@ class ToolContract:
     required_fields: list[str] = field(default_factory=list)
     timeout_seconds: float = 30.0
     requires_confirmation: bool = False
+    # Tempo máximo que a interface tem para decidir uma ação sensível.
+    authorization_timeout_seconds: float = 120.0
     allowed_modes: list[str] = field(default_factory=lambda: ["text", "voice"])
     permissions: list[str] = field(default_factory=list)
     # De onde a implementação veio (arquivo original do Mark-LVI ou "ultron-2.0").

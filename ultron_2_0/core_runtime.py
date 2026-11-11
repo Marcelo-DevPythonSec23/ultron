@@ -55,6 +55,8 @@ class UltronCoreRuntime:
         enable_tools: bool = True,
         memory_path: str | Path | None = None,
         memory_budget_chars: int = 1200,
+        authorization: "AuthorizationManager | None" = None,
+        confirmation_handler: "ConfirmationHandler | None" = None,
     ) -> None:
         bootstrap.ensure_sys_paths(project_root)
         self._project_root, self._lain_root, self._marklvi_root = bootstrap.resolve_roots(
@@ -69,6 +71,10 @@ class UltronCoreRuntime:
         # isolar arquivos em testes; em produção usa data/memory.json.
         self._memory_path = memory_path
         self._memory_budget_chars = max(0, int(memory_budget_chars))
+        # Autorização (Fase 2): o modelo propõe, a interface decide. O manager
+        # pode vir pronto (HUD/testes) ou ser criado com o handler interativo.
+        self._authorization = authorization
+        self._confirmation_handler = confirmation_handler
 
         # Event loop dedicado em thread de background (padrão Mark-LVI).
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -79,6 +85,7 @@ class UltronCoreRuntime:
         self.orchestrator = None
         self.registry = None
         self.gateway = None
+        self.authorization = None  # AuthorizationManager (Fase 2)
         self.memory = None  # FactMemory (armazenamento canônico, compat. Etapa 4)
         self.memory_engine = None  # MemoryEngine (tipos/escopos/versões)
         self._engine = None
@@ -154,15 +161,23 @@ class UltronCoreRuntime:
         # Gateway de ferramentas (subset curado do Mark-LVI) — antes dos
         # providers, porque o ToolCallingProvider precisa dele.
         if self._enable_tools:
+            from .authorization import AuthorizationManager
             from .marklvi_actions import build_gateway
             from .memory_tools import register_memory_tools
 
             self.gateway = build_gateway(self._project_root)
+            # Toda ferramenta sensível passa por aqui; sem manager, o gateway
+            # recusa. O handler interativo é da CLI; o HUD decide por endpoint.
+            self.authorization = self._authorization or AuthorizationManager(
+                confirm_handler=self._confirmation_handler
+            )
+            self.gateway.set_authorization(self.authorization)
             # remember/recall/forget passam a operar pelo motor: tipo, escopo,
             # versão e histórico. Memória explícita, sem gravação automática.
             register_memory_tools(self.gateway, self.memory_engine)
         else:
             self.gateway = None
+            self.authorization = None
 
         default_provider = self._requested_default_provider or (
             "mock" if not self.settings.get_gemini_api_key() else "gemini"

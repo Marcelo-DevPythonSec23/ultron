@@ -70,9 +70,14 @@ def _coerce(value: Any, expected: str) -> Any:
 class ToolGateway:
     """Registro + validação + execução das ferramentas integradas."""
 
-    def __init__(self) -> None:
+    def __init__(self, authorization: Any | None = None) -> None:
         self._contracts: dict[str, ToolContract] = {}
         self._executors: dict[str, ToolExecutor] = {}
+        self._authorization = authorization
+
+    def set_authorization(self, authorization: Any | None) -> None:
+        """Liga o AuthorizationManager (Fase 2). Sem ele, ações sensíveis são recusadas."""
+        self._authorization = authorization
 
     # -- registro -----------------------------------------------------------
     def register(self, contract: ToolContract, executor: ToolExecutor) -> None:
@@ -143,31 +148,111 @@ class ToolGateway:
 
         return validated, None
 
+    # -- autorização ---------------------------------------------------------
+    async def _authorize(
+        self,
+        contract: ToolContract,
+        params: dict[str, Any],
+        approval_token: str | None,
+    ) -> ToolResult | None:
+        """Obtém autorização da interface. Retorna ToolResult de falha ou None.
+
+        A espera acontece em worker thread: o event loop do núcleo continua
+        livre para o HUD responder ao pedido de aprovação. Sem manager ligado,
+        recusar é o único comportamento seguro (nunca aprovar por omissão).
+        """
+        from .authorization import AuthorizationError
+
+        if self._authorization is None:
+            reason = (
+                "this tool requires explicit user confirmation, but no "
+                "authorization manager is configured for this interface"
+            )
+            audit.warning("tool=%s rejected=authorization-unavailable", contract.name)
+            return ToolResult(
+                ok=False,
+                tool_name=contract.name,
+                error=reason,
+                metadata={"authorization": "unavailable"},
+            )
+
+        try:
+            if approval_token:
+                action = await asyncio.to_thread(
+                    self._authorization.consume,
+                    approval_token,
+                    contract.name,
+                    params,
+                )
+            else:
+                action = await asyncio.to_thread(
+                    self._authorization.request_and_wait,
+                    contract.name,
+                    params,
+                    reason=f"tool '{contract.name}' requires confirmation",
+                    ttl_seconds=contract.authorization_timeout_seconds,
+                )
+        except AuthorizationError as exc:
+            audit.warning(
+                "tool=%s authorization=denied type=%s reason=%s",
+                contract.name,
+                type(exc).__name__,
+                exc,
+            )
+            return ToolResult(
+                ok=False,
+                tool_name=contract.name,
+                error=f"authorization denied: {exc}",
+                metadata={
+                    "authorization": "denied",
+                    "reason": type(exc).__name__,
+                },
+            )
+        except Exception as exc:  # manager com defeito nunca libera execução
+            audit.exception("tool=%s authorization=crashed", contract.name)
+            return ToolResult(
+                ok=False,
+                tool_name=contract.name,
+                error=f"authorization failed: {type(exc).__name__}: {exc}",
+                metadata={"authorization": "error"},
+            )
+
+        audit.info(
+            "tool=%s authorization=approved action=%s",
+            contract.name,
+            getattr(action, "action_id", "?"),
+        )
+        return None
+
     # -- execução ------------------------------------------------------------
-    async def execute(self, name: str, parameters: dict | None) -> ToolResult:
-        """Executa uma ferramenta com validação, timeout e auditoria."""
+    async def execute(
+        self,
+        name: str,
+        parameters: dict | None,
+        *,
+        approval_token: str | None = None,
+    ) -> ToolResult:
+        """Executa uma ferramenta com validação, autorização, timeout e auditoria."""
         params, error = self.validate(name, parameters)
         if error is not None:
             audit.warning("tool=%s rejected=validation error=%s", name, error)
             return ToolResult(ok=False, tool_name=name, error=error)
 
         contract = self._contracts[name]
+        authorized = False
         if contract.requires_confirmation:
-            # Gate de confirmação (core/confirm.py) ainda não ligado à
-            # interface do 2.0: recusar é o único comportamento seguro.
-            reason = (
-                "this tool requires explicit user confirmation, which is not "
-                "available in this interface yet"
-            )
-            audit.warning("tool=%s rejected=confirmation-required", name)
-            return ToolResult(ok=False, tool_name=name, error=reason)
+            failure = await self._authorize(contract, params or {}, approval_token)
+            if failure is not None:
+                return failure
+            authorized = True
 
         executor = self._executors[name]
         audit.info(
-            "tool=%s params=%s timeout=%.1fs",
+            "tool=%s params=%s timeout=%.1fs authorized=%s",
             name,
             {k: v for k, v in (params or {}).items()},
             contract.timeout_seconds,
+            authorized,
         )
         try:
             outcome = await asyncio.wait_for(
@@ -192,5 +277,5 @@ class ToolGateway:
             ok=True,
             tool_name=name,
             result=rendered,
-            metadata={"source": contract.source},
+            metadata={"source": contract.source, **({"authorized": True} if authorized else {})},
         )

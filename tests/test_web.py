@@ -205,3 +205,43 @@ def test_servidor_escuta_local_por_padrao():
     assert args.host == "127.0.0.1"
     assert args.port == 8765
     assert args.open is False
+
+
+# -- autorização interativa pelo HUD (Fase 2 do ULTRON 2.1) -------------------
+
+
+def test_hud_lista_aprova_e_libera_a_acao(client):
+    test_client, bridge = client
+    manager = bridge.runtime.authorization
+    action = manager.request("forget", {"key": "cor"})
+
+    body = test_client.get("/api/approvals").json()
+    assert [item["action_id"] for item in body["pending"]] == [action.action_id]
+    assert "token" not in body["pending"][0]
+    assert test_client.get("/api/status").json()["pending_approvals"] == 1
+
+    approved = test_client.post(f"/api/approvals/{action.action_id}/approve")
+    assert approved.status_code == 200
+    assert approved.json()["action"]["status"] == "approved"
+
+    assert test_client.get("/api/approvals").json()["pending"] == []
+    assert manager.consume(action.token, "forget", {"key": "cor"}).status == "consumed"
+
+
+def test_hud_recusa_e_rejeita_replay_e_id_desconhecido(client):
+    test_client, bridge = client
+    manager = bridge.runtime.authorization
+    action = manager.request("forget", {"key": "cor"})
+
+    rejected = test_client.post(
+        f"/api/approvals/{action.action_id}/reject", json={"reason": "não"}
+    )
+    assert rejected.status_code == 200
+    assert rejected.json()["action"]["status"] == "rejected"
+
+    replay = test_client.post(f"/api/approvals/{action.action_id}/approve")
+    assert replay.status_code == 409
+
+    unknown = test_client.post("/api/approvals/inexistente/approve")
+    assert unknown.status_code == 404
+

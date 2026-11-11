@@ -33,12 +33,16 @@ class OrchestratorBridge:
         database_url: str | None = None,
         default_provider: str | None = None,
         enable_tools: bool = True,
+        confirmation_handler: Any | None = None,
+        authorization: Any | None = None,
     ) -> None:
         self.runtime = UltronCoreRuntime(
             project_root=project_root,
             database_url=database_url,
             default_provider=default_provider,
             enable_tools=enable_tools,
+            confirmation_handler=confirmation_handler,
+            authorization=authorization,
         )
         self._conversation_id: str | None = None
 
@@ -120,6 +124,24 @@ class OrchestratorBridge:
             "tool_calls": tool_calls,
         }
 
+    # -- autorização (Fase 2) -------------------------------------------------
+    def pending_actions(self) -> list[dict[str, Any]]:
+        """Pendências de autorização visíveis para a interface (sem tokens)."""
+        manager = self.runtime.authorization
+        return manager.pending() if manager is not None else []
+
+    def approve_action(self, action_id: str) -> dict[str, Any]:
+        manager = self.runtime.authorization
+        if manager is None:
+            raise RuntimeError("autorização indisponível (ferramentas desligadas)")
+        return manager.approve(action_id).public()
+
+    def reject_action(self, action_id: str, reason: str = "rejected by user") -> dict[str, Any]:
+        manager = self.runtime.authorization
+        if manager is None:
+            raise RuntimeError("autorização indisponível (ferramentas desligadas)")
+        return manager.reject(action_id, reason=reason).public()
+
     # -- diagnóstico ----------------------------------------------------------
     def status(self) -> dict[str, Any]:
         """Estado REAL do sistema (nada simulado)."""
@@ -137,4 +159,5 @@ class OrchestratorBridge:
             "conversation_id": self._conversation_id,
             "database": _mask_db_url(runtime.settings.DATABASE_URL),
             "memory": str(runtime.memory.path) if runtime.memory else None,
+            "pending_approvals": len(self.pending_actions()),
         }

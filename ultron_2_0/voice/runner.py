@@ -157,6 +157,20 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _deny_sensitive_action(action) -> bool:
+    """Voz NÃO autoriza ações sensíveis (AGENTS.md 2.1, Fase 2).
+
+    Não existe autenticação confiável por voz; aprovar por áudio permitiria que
+    qualquer pessoa no ambiente liberasse uma exclusão. A recusa é explícita e
+    o núcleo informa o usuário para confirmar pela CLI/HUD.
+    """
+    print(
+        f"\n  [voz] '{action.tool_name}' exige confirmação; autorização por voz "
+        "não é suportada — confirme pela CLI ou pelo HUD.\n"
+    )
+    return False
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     logging.basicConfig(
@@ -177,6 +191,7 @@ def main(argv: list[str] | None = None) -> int:
         project_root=args.project_root,
         database_url=args.database,
         default_provider=args.provider,
+        confirmation_handler=_deny_sensitive_action,
     )
     bridge.start()
     try:

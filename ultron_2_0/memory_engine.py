@@ -931,29 +931,44 @@ class MemoryEngine:
         return head + "\n" + "\n".join(lines)
 
     def forget(self, key: str, category: str = "notes") -> dict[str, Any]:
-        """Contrato de `forget`: exclui UM fato global por chave/categoria.
+        """Contrato de `forget`: exclui UM fato por chave/categoria.
+
+        Busca apenas nos escopos que esta instância pode LER (por padrão
+        `global` + `user:default`): um fato do usuário nasce em `user:default`
+        (`category=preferences`, `memory_type=user`), então procurar só em
+        `global` — como antes — devolvia "not found" e o fato nunca era
+        removido. Continua sendo UMA exclusão explícita, autorizada e auditada;
+        escopos fora da política de leitura não são tocados.
 
         O gateway só chama isto após o gate de confirmação; a autorização
         interna é explícita (`authorized=True`) e auditada.
         """
         category = category if category in MEMORY_CATEGORIES else "notes"
+        needle = (key or "").strip()
+        candidate_scopes = list(dict.fromkeys((DEFAULT_SCOPE, *self.read_scopes)))
         with self._lock:
             records = self._ensure_loaded()
-            record = self._find(
-                records,
-                scope=DEFAULT_SCOPE,
-                category=category,
-                key=(key or "").strip(),
-                valid=True,
-            )
+            record = None
+            for scope_name in candidate_scopes:
+                record = self._find(
+                    records,
+                    scope=scope_name,
+                    category=category,
+                    key=needle,
+                    valid=True,
+                )
+                if record is not None:
+                    break
             if record is None:
-                message = f"Not found: {category}/{(key or '').strip()}"
+                message = f"Not found: {category}/{needle}"
                 return {"removed": False, "category": category, "message": message}
             result = self.delete(record.id, authorized=True, reason="tool:forget")
+            scope_removed = record.scope
         return {
             "removed": bool(result.get("removed")),
             "category": category,
             "key": key,
+            "scope": scope_removed,
             "message": result.get("message", ""),
         }
 

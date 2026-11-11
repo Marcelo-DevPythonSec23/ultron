@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 from pathlib import Path
 
 from .orchestrator_bridge import OrchestratorBridge
@@ -28,6 +29,32 @@ from .orchestrator_bridge import OrchestratorBridge
 logger = logging.getLogger("ultron2.cli")
 
 _COMMANDS = ("/status", "/tools", "/new", "/quit")
+
+
+def _terminal_confirmation(action) -> bool:
+    """Confirmação REAL na CLI (Fase 2). Sem TTY, recusa — nunca aprova sozinho.
+
+    A decisão é do usuário, não do modelo: este handler só é chamado pelo
+    `AuthorizationManager` depois que o modelo propôs a ferramenta.
+    """
+    if not sys.stdin.isatty():
+        print(
+            f"\n  [autorização] {action.tool_name} exige confirmação; "
+            "entrada não interativa — recusado.\n"
+        )
+        return False
+    print("\n  ── AÇÃO SENSÍVEL REQUER AUTORIZAÇÃO ──")
+    print(f"  ferramenta : {action.tool_name}")
+    print(f"  argumentos : {action.arguments}")
+    if action.reason:
+        print(f"  motivo     : {action.reason}")
+    print(f"  expira em  : {max(0, round(action.expires_at - action.created_at))}s")
+    try:
+        answer = input("  Autorizar? [s/N] ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+    return answer in ("s", "sim", "y", "yes")
 
 
 def _print_response(response) -> None:
@@ -142,6 +169,7 @@ def main(argv: list[str] | None = None) -> int:
         database_url=args.database,
         default_provider=args.provider,
         enable_tools=not args.no_tools,
+        confirmation_handler=_terminal_confirmation,
     )
 
     if args.demo:

@@ -42,6 +42,10 @@ class ChatBody(BaseModel):
     provider: str | None = None
 
 
+class RejectBody(BaseModel):
+    reason: str = Field(default="rejected by user", max_length=200)
+
+
 def _contract_dict(contract: Any) -> dict[str, Any]:
     return {
         "name": contract.name,
@@ -142,6 +146,41 @@ def create_app(
     async def new_conversation() -> dict[str, Any]:
         bridge.new_conversation()
         return {"conversation_id": None, "status": "new-conversation"}
+
+    # -- autorização interativa (Fase 2 do ULTRON 2.1) ------------------------
+    # O HUD é a interface que decide: o pedido fica pendente enquanto o turno
+    # aguarda; aprovar/recusar aqui libera o ToolGateway. O modelo nunca vê
+    # token nem chama estes endpoints.
+    @app.get("/api/approvals")
+    async def approvals() -> dict[str, Any]:
+        return {"pending": bridge.pending_actions()}
+
+    @app.post("/api/approvals/{action_id}/approve")
+    async def approve(action_id: str) -> dict[str, Any]:
+        return _decide(lambda: bridge.approve_action(action_id))
+
+    @app.post("/api/approvals/{action_id}/reject")
+    async def reject(action_id: str, body: RejectBody | None = None) -> dict[str, Any]:
+        reason = body.reason if body is not None else "rejected by user"
+        return _decide(lambda: bridge.reject_action(action_id, reason))
+
+    def _decide(operation: Callable[[], dict[str, Any]]) -> dict[str, Any]:
+        from ..authorization import (
+            AuthorizationDenied,
+            AuthorizationError,
+            ExpiredToken,
+            TokenAlreadyUsed,
+            UnknownAction,
+        )
+
+        try:
+            return {"ok": True, "action": operation()}
+        except UnknownAction as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except (ExpiredToken, TokenAlreadyUsed, AuthorizationDenied) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except AuthorizationError as exc:  # pragma: no cover - base defensiva
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return app
 
