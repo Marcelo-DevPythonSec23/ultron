@@ -130,6 +130,53 @@ só quando validadas por teste. Ver `docs/memory/MEMORY_ARCHITECTURE.md`.
 
 ---
 
+## ADR-011 — Documentação da raiz em repositório Git próprio
+
+**Status:** Aceita (2026-11-11)
+**Contexto:** specs (`AGENTS.md`, `CONTEXT.md`, `MEMORY.md`, `INTERFACE.md`) e
+`docs/` viviam fora do Git; só `ultron-2.0/` e `lain/` eram repositórios.
+**Problema:** contexto e decisões se perderiam entre sessões/agentes.
+**Alternativas:** (a) copiar docs para `ultron-2.0/`; (b) repositório na raiz;
+(c) submódulo.
+**Decisão:** repositório Git na raiz versionando specs e `docs/`, com
+`.gitignore` para `lain/`, `Mark-LVI-main/`, `ultron-2.0/`, dados e segredos.
+**Justificativa:** preserva os originais, mantém cada código no seu repo e não
+duplica documentação.
+**Consequências:** documentação nova entra no repo da raiz; código/testes no
+repo do produto. Commit inicial `3fb03bb`.
+**Fontes:** `.gitignore`, `docs/context/CONTEXT_INDEX.md`.
+
+---
+
+## ADR-012 — Autorização interativa separada da execução
+
+**Status:** Proposta (Fase 2)
+**Contexto:** `requires_confirmation` existe, mas o gateway recusa sempre;
+não há como confirmar pela CLI/HUD.
+**Decisão proposta:** `AuthorizationManager` com `PendingAction` +
+`ApprovalToken` de uso único, vinculado a ferramenta + argumentos exatos,
+com expiração; a aprovação vem da interface, nunca do modelo; a execução só
+ocorre com token válido.
+**Consequências:** `forget` passa a funcionar; replay/argumentos alterados são
+rejeitados; auditoria registra pedido, aprovação e execução.
+**Fontes:** `tool_gateway.py:155`, `SECURITY.md`.
+
+---
+
+## ADR-013 — Fase 2.5 adapta a interface ao HUD web
+
+**Status:** Proposta (Fase 2.5)
+**Contexto:** a referência Mark-LVI é PyQt6 (`ui.py`, 7.504 linhas, avatar,
+viseme) mais um dashboard HTTPS; o ambiente tem ~4 GB RAM e o 2.0 já tem HUD
+web (ADR-006).
+**Decisão proposta:** auditar a referência e reconstruir a **funcionalidade**
+no HUD web, com identidade ULTRON própria, sem portar PyQt6.
+**Consequências:** paridade funcional documentada por matriz; diferenças de
+plataforma registradas; animações respeitam `prefers-reduced-motion`.
+**Fontes:** `INTERFACE.md`, `ultron_2_0/web/`.
+
+---
+
 ## Modelo para novas decisões
 
 ```markdown

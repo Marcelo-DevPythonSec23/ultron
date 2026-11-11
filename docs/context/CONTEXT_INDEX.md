@@ -7,9 +7,12 @@ exige (ver §5 de `CONTEXT.md`).
 
 | Caminho | Assunto | Descrição | Autoridade | Atualização | Relacionados |
 |---|---|---|---|---|---|
-| `AGENTS.md` (raiz) | Requisitos | Mega prompt da integração | **máxima** | estável | `ultron-2.0/AGENTS.md` |
+| `AGENTS.md` (raiz) | Requisitos | Diretrizes mestras ULTRON 2.1 e roteiro de fases | **máxima** | 2026-11-11 | `ultron-2.0/AGENTS.md` |
+| `INTERFACE.md` (raiz) | Requisitos de UI | Fase 2.5: reconstrução da interface do Mark-LVI | **máxima** para UI | 2026-11-11 | documentação de UI (a criar na fase) |
 | `PROJECT_CONTEXT.md` | Visão global | Identidade, origem, arquitetura, estado, restrições | **máxima** | 2026-11-10 | `docs/context/*` |
-| `docs/context/CONTEXT_INDEX.md` | Índice | Este mapa | **máxima** | 2026-11-10 | todos |
+| `docs/context/CONTEXT_INDEX.md` | Índice | Este mapa | **máxima** | 2026-11-11 | todos |
+| `CONTEXT.md` | Context Engineering | Especificação do sistema de contexto | alta (histórica) | 2026-11-10 | `docs/context/*` |
+| `MEMORY.md` | Memory Engineering | Especificação do motor de memória | alta (histórica) | 2026-11-10 | `docs/memory/*` |
 | `ultron-2.0/README.md` | Uso | Instalação, comandos, funcionalidades reais | alta | 2026-11-10 | `docs/TESTING.md` |
 
 ## Nível 2 — contexto arquitetural
@@ -22,7 +25,8 @@ exige (ver §5 de `CONTEXT.md`).
 | `docs/context/DEPENDENCY_MAP.md` | Dependências | Quem importa quem, regras | alta | 2026-11-10 | `MODULE_MAP.md` |
 | `docs/context/TECHNICAL_DECISIONS.md` | ADRs | Decisões e consequências | **máxima** para decisões | 2026-11-10 | `INTEGRATION_AUDIT.md` |
 | `docs/INTEGRATION_AUDIT.md` | Auditoria | Evidência original e riscos | **máxima** | 2026-11-10 | todos |
-| `docs/context/DEVELOPMENT_STATE.md` | Estado | O que está implementado/parcial/pendente | alta | 2026-11-10 | `TESTING.md` |
+| `docs/context/DEVELOPMENT_STATE.md` | Estado | O que está implementado/parcial/pendente | alta | 2026-11-11 | `TESTING.md` |
+| `docs/roadmap/ULTRON_21_ASSESSMENT.md` | Reavaliação | Fase 0 do ULTRON 2.1: lacunas e plano | alta | 2026-11-11 | `AGENTS.md` |
 
 ## Nível 3 — contexto especializado
 
@@ -69,3 +73,16 @@ exige (ver §5 de `CONTEXT.md`).
 - Não há ADRs do 2.0 fora de `TECHNICAL_DECISIONS.md`.
 - `docs/memory/` existe e está indexado acima; não criar documentos além dos 9
   listados sem implementação correspondente.
+- `docs/ui/` e `docs/roadmap/ULTRON_21_FINAL_REPORT.md` só devem existir quando
+  as fases correspondentes forem implementadas (Fase 2.5 e Fase 8).
+
+## Versionamento documental
+
+- A raiz do projeto é um repositório Git próprio (`3fb03bb`, 2026-11-11) que
+  versiona specs e documentação.
+- `.gitignore` da raiz exclui `lain/`, `Mark-LVI-main/` e `ultron-2.0/` (cada
+  projeto tem seu próprio Git) além de dados, bancos, `.env` e caches.
+- `ultron-2.0/` continua sendo o repositório do código (branch
+  `integration/etapa-0-fundacao`).
+- Regra: documentação nova entra no repositório da raiz; código e testes, no
+  repositório do produto.

@@ -1,6 +1,6 @@
 # DEVELOPMENT_STATE — estado técnico real
 
-**Data:** 2026-11-10
+**Data:** 2026-11-11
 **Regra:** toda linha tem evidência (arquivo/teste). Planejamento não é
 implementação. Classificações: `IMPLEMENTED`, `PARTIAL`, `PLANNED`, `BLOCKED`,
 `DEPRECATED`, `UNKNOWN`.
@@ -60,7 +60,22 @@ ultron-2.0/ultron_2_0/
 | 28 | Actions de escrita/execução do Mark-LVI | `BLOCKED` | risco; ver `INTEGRATION_MAP.md` |
 | 29 | API HTTP do lain (`app/api`) | `DEPRECATED` no 2.0 | HUD próprio substitui |
 
-## 3. Testes existentes
+## 3. Fases do ULTRON 2.1 (`AGENTS.md` 2.1 + `INTERFACE.md`)
+
+| Fase | Estado | Evidência |
+|---|---|---|
+| 0 — Reavaliação | `IMPLEMENTED` | `docs/roadmap/ULTRON_21_ASSESSMENT.md`, baseline 109+64 |
+| 1 — Documentação/Git | `IMPLEMENTED` | repositório da raiz `3fb03bb`, índice unificado, 0 links quebrados |
+| 2 — Autorização interativa | `PLANNED` | `tool_gateway.py` ainda recusa `requires_confirmation` |
+| 2.5 — Interface (`INTERFACE.md`) | `PLANNED` | HUD mínimo; auditoria/UI ainda não iniciadas |
+| 3 — Model Router | `PLANNED` | só `ProviderRegistry` + seleção manual |
+| 4 — Multiagente | `PLANNED` | sem código |
+| 5 — CLI/MCP | `PLANNED` | sem adaptadores |
+| 6 — Evolução da memória | `PARTIAL` | lexical implementado; embeddings/cripto/backup `PLANNED` |
+| 7 — Autonomia operacional | `PLANNED` | sem planner/workflow |
+| 8 — Validação/estabilização | `PARTIAL` | suítes atuais verdes; faltam testes das fases novas |
+
+## 4. Testes existentes
 
 | Arquivo | Testes | Cobre |
 |---|---|---|
@@ -81,7 +96,7 @@ ultron-2.0/ultron_2_0/
 
 Regressão do núcleo: **64** testes em `lain/`.
 
-## 4. Problemas conhecidos
+## 5. Problemas conhecidos
 
 1. `forget` não pode ser confirmado pela interface → sempre recusado (seguro).
 2. `browser_control`/`screen_processor` do Mark-LVI falham ao importar sem
@@ -93,17 +108,20 @@ Regressão do núcleo: **64** testes em `lain/`.
 7. Busca semântica (embeddings) não implementada; recuperação é lexical.
 8. Memória em JSON sem criptografia/backup automático (risco registrado).
 
-## 5. Dependências
+## 6. Dependências
 
 `fastapi`, `sqlalchemy`, `aiosqlite`, `pydantic`, `pydantic-settings`,
 `python-dotenv`, `google-genai>=3,<4`, `psutil`, `ddgs`, `uvicorn`.
 Dev: `pytest`, `pytest-asyncio`.
 
-## 6. Próximos objetivos (priorizados)
+## 7. Próximos objetivos (priorizados)
 
-1. Interface de confirmação para `forget` e ações sensíveis.
-2. Expor escopo/tags/trust, episódios e procedimentos nas tools/HUD.
-3. Busca semântica opcional (embeddings) sem virar dependência obrigatória.
-4. Agendador de `expire()`/`consolidate()` e métricas de qualidade.
-5. Criptografia em repouso e backup/restauração de `data/`.
-6. Retry/backoff padronizado para providers.
+1. Fase 2: `AuthorizationManager` + confirmação real na CLI e no HUD.
+2. Fase 2.5: auditoria da interface do Mark-LVI e reconstrução no HUD web.
+3. Fase 3: Model Router com ≥2 providers e fallback testado.
+4. Interface de confirmação para `forget` e ações sensíveis (depende da Fase 2).
+5. Expor escopo/tags/trust, episódios e procedimentos nas tools/HUD.
+6. Busca semântica opcional (embeddings) sem virar dependência obrigatória.
+7. Agendador de `expire()`/`consolidate()` e métricas de qualidade.
+8. Criptografia em repouso e backup/restauração de `data/`.
+9. Retry/backoff padronizado para providers (Fase 3).
