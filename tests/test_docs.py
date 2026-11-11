@@ -143,3 +143,35 @@ def test_agents_aponta_para_contexto_e_memoria():
         "../docs/memory/MEMORY_API.md",
     ):
         assert expected in agents, f"AGENTS.md não aponta para {expected}"
+
+
+def test_todos_os_links_da_documentacao_resolvem():
+    """Fase 1 do ULTRON 2.1: nenhuma documentação com link relativo quebrado.
+
+    Varre specs da raiz e todo `docs/**/*.md`. Links externos, âncoras e
+    `mailto:` são ignorados. Arquivos históricos também entram: se um deles
+    aponta para algo removido, o link deve ser corrigido ou o documento
+    marcado como arquivado.
+    """
+    specs = [
+        PROJECT_ROOT / "AGENTS.md",
+        PROJECT_ROOT / "CONTEXT.md",
+        PROJECT_ROOT / "MEMORY.md",
+        PROJECT_ROOT / "INTERFACE.md",
+        PROJECT_ROOT / "PROJECT_CONTEXT.md",
+    ]
+    markdown = specs + sorted(DOCS.rglob("*.md"))
+    broken: list[str] = []
+    for file in markdown:
+        if not file.is_file():
+            continue
+        for target in _LINK_RE.findall(file.read_text(encoding="utf-8")):
+            target = target.strip()
+            if target.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            target = target.split("#", 1)[0]
+            if not target:
+                continue
+            if not (file.parent / target).resolve().exists():
+                broken.append(f"{file.relative_to(PROJECT_ROOT)} -> {target}")
+    assert not broken, f"links relativos quebrados: {broken}"
