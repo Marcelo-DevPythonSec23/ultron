@@ -53,6 +53,8 @@ class UltronCoreRuntime:
         database_url: str | None = None,
         default_provider: str | None = None,
         enable_tools: bool = True,
+        memory_path: str | Path | None = None,
+        memory_budget_chars: int = 1200,
     ) -> None:
         bootstrap.ensure_sys_paths(project_root)
         self._project_root, self._lain_root, self._marklvi_root = bootstrap.resolve_roots(
@@ -62,6 +64,11 @@ class UltronCoreRuntime:
         self._database_url = database_url  # None -> banco isolado padrão do 2.0
         self._requested_default_provider = default_provider
         self._enable_tools = enable_tools
+        # Memória é do NÚCLEO (MEMORY.md §2/§10), não uma ferramenta: o motor
+        # existe mesmo com as ferramentas desligadas. `memory_path` permite
+        # isolar arquivos em testes; em produção usa data/memory.json.
+        self._memory_path = memory_path
+        self._memory_budget_chars = max(0, int(memory_budget_chars))
 
         # Event loop dedicado em thread de background (padrão Mark-LVI).
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -72,7 +79,8 @@ class UltronCoreRuntime:
         self.orchestrator = None
         self.registry = None
         self.gateway = None
-        self.memory = None
+        self.memory = None  # FactMemory (armazenamento canônico, compat. Etapa 4)
+        self.memory_engine = None  # MemoryEngine (tipos/escopos/versões)
         self._engine = None
         self._session_factory = None
         self._session = None
@@ -135,6 +143,14 @@ class UltronCoreRuntime:
         )
         self._session = self._session_factory()
 
+        # Memória do núcleo (MEMORY.md §2/§10): o motor existe SEMPRE — com as
+        # ferramentas desligadas ele ainda fornece contexto ao modelo. O
+        # armazenamento canônico continua sendo o memory.json do 2.0.
+        from .memory_engine import MemoryEngine
+
+        self.memory_engine = MemoryEngine(self._memory_path)
+        self.memory = self.memory_engine.facts
+
         # Gateway de ferramentas (subset curado do Mark-LVI) — antes dos
         # providers, porque o ToolCallingProvider precisa dele.
         if self._enable_tools:
@@ -142,13 +158,11 @@ class UltronCoreRuntime:
             from .memory_tools import register_memory_tools
 
             self.gateway = build_gateway(self._project_root)
-            # Memória de fatos é do ULTRON (Etapa 4): explícita, sem gravação
-            # automática, em arquivo próprio do 2.0 (nunca o long_term.json
-            # do Mark-LVI).
-            self.memory = register_memory_tools(self.gateway)
+            # remember/recall/forget passam a operar pelo motor: tipo, escopo,
+            # versão e histórico. Memória explícita, sem gravação automática.
+            register_memory_tools(self.gateway, self.memory_engine)
         else:
             self.gateway = None
-            self.memory = None
 
         default_provider = self._requested_default_provider or (
             "mock" if not self.settings.get_gemini_api_key() else "gemini"
@@ -156,10 +170,11 @@ class UltronCoreRuntime:
         self.registry = ProviderRegistry(default_provider_id=default_provider)
 
         # Providers do núcleo, envolvidos pelo ToolCallingProvider quando há
-        # ferramentas. provider_id é o mesmo do interno: o orquestrador do lain
-        # não percebe a extensão.
+        # ferramentas e pelo MemoryInjectionProvider (contexto do turno).
+        # provider_id é o mesmo do interno: o orquestrador do lain não percebe
+        # a extensão.
         mock = MockProvider()
-        self.registry.register_provider(self._wrap(mock) if self.gateway else mock)
+        self.registry.register_provider(self._wrap(mock))
 
         if self.settings.get_gemini_api_key():
             from app.intelligence.providers.gemini import GeminiProvider
@@ -168,9 +183,7 @@ class UltronCoreRuntime:
                 api_key=self.settings.get_gemini_api_key(),
                 default_model=self.settings.GEMINI_DEFAULT_MODEL,
             )
-            self.registry.register_provider(
-                self._wrap(gemini) if self.gateway else gemini
-            )
+            self.registry.register_provider(self._wrap(gemini))
         else:
             logger.warning(
                 "GEMINI_API_KEY ausente no .env do lain — provedor gemini não registrado"
@@ -199,24 +212,45 @@ class UltronCoreRuntime:
         return self
 
     def _wrap(self, provider):
+        """Envolve o provedor: ferramentas por dentro, memória por fora.
+
+        Ordem importa: o `ToolCallingProvider` acrescenta o protocolo de
+        ferramentas ao `system_instruction`; a memória entra como camada
+        externa, uma vez por turno, e sobrevive às rodadas internas de
+        ferramenta. Nenhum dos dois é um segundo orquestrador — ambos só
+        transformam a requisição antes de o provedor interno respondê-la.
+        """
         from .tool_loop import ToolCallingProvider
 
-        return ToolCallingProvider(provider, self.gateway)
+        wrapped = (
+            ToolCallingProvider(provider, self.gateway)
+            if self.gateway is not None
+            else provider
+        )
+        if self.memory_engine is not None:
+            from .memory_injection import MemoryInjectionProvider
+
+            wrapped = MemoryInjectionProvider(
+                wrapped,
+                self.memory_engine,
+                budget_chars=self._memory_budget_chars,
+            )
+        return wrapped
 
     def register_provider(self, provider) -> None:
         """Registra um provedor adicional no ProviderRegistry do lain.
 
-        Recebe o MESMO tratamento dos provedores nativos: se há gateway de
-        ferramentas, é envolvido pelo ToolCallingProvider (mesmo provider_id —
-        registrar sob um id já existente o substitui, comportamento do
-        ProviderRegistry do lain). Usado por testes e por integrações futuras
-        que tragam provedores próprios sem tocar no lain.
+        Recebe o MESMO tratamento dos provedores nativos: ferramentas
+        (ToolCallingProvider) e memória (MemoryInjectionProvider), com o mesmo
+        provider_id — registrar sob um id já existente o substitui,
+        comportamento do ProviderRegistry do lain. Usado por testes e por
+        integrações que tragam provedores próprios sem tocar no lain.
         """
         if self.orchestrator is None:
             raise RuntimeError(
                 "núcleo não iniciado — chame start()/start_async() primeiro"
             )
-        self.registry.register_provider(self._wrap(provider) if self.gateway else provider)
+        self.registry.register_provider(self._wrap(provider))
 
     async def chat(
         self,

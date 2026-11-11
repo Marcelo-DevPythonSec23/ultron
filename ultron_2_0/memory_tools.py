@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,13 @@ from .tool_contracts import ToolContract
 from .tool_gateway import ToolGateway
 
 logger = logging.getLogger("ultron2.memory")
+
+# O `memory_manager` do Mark-LVI guarda o caminho em uma GLOBAL de módulo.
+# Duas instâncias (dois escopos/arquivos) no mesmo processo corromperiam uma à
+# outra se cada operação não reafirmasse o próprio caminho. Este lock serializa
+# "apontar o caminho + executar a operação" (o manager tem lock próprio apenas
+# para o I/O, não para a global).
+_path_lock = threading.RLock()
 
 MEMORY_CATEGORIES = (
     "identity",
@@ -68,13 +76,29 @@ def configure_memory_path(path: str | Path | None = None) -> Path:
 
 
 class FactMemory:
-    """Fachada explícita sobre o memory_manager reutilizado."""
+    """Fachada explícita sobre o memory_manager reutilizado.
+
+    Toda operação reafirma `self.path` sob `_path_lock` antes de tocar no
+    manager: o caminho do memory_manager é uma global de módulo e, sem isso,
+    uma segunda instância (outro escopo/teste) desviaria as gravações.
+    """
 
     def __init__(self, path: str | Path | None = None) -> None:
         self.path = configure_memory_path(path)
         self._manager = _manager()
 
-    def remember(self, key: str, value: str, category: str = "notes") -> dict[str, Any]:
+    def _use(self):
+        """Aponta o manager para ESTA instância; exige `_path_lock` do chamador."""
+        self._manager.MEMORY_PATH = self.path
+        return self._manager
+
+    def remember(
+        self,
+        key: str,
+        value: str,
+        category: str = "notes",
+        memory_type: str | None = None,
+    ) -> dict[str, Any]:
         key = (key or "").strip()
         value = (value or "").strip()
         if not key:
@@ -82,7 +106,8 @@ class FactMemory:
         if not value:
             raise ValueError("value vazio")
         category = category if category in MEMORY_CATEGORIES else "notes"
-        self._manager.remember(key, value, category)
+        with _path_lock:
+            self._use().remember(key, value, category)
         return {
             "stored": True,
             "category": category,
@@ -91,25 +116,35 @@ class FactMemory:
         }
 
     def recall(self, query: str = "", limit: int = 8) -> str:
-        return self._manager.search_memory(query or "", limit=max(1, int(limit)))
+        with _path_lock:
+            return self._use().search_memory(query or "", limit=max(1, int(limit)))
 
     def forget(self, key: str, category: str = "notes") -> dict[str, Any]:
         category = category if category in MEMORY_CATEGORIES else "notes"
-        message = self._manager.forget((key or "").strip(), category)
+        with _path_lock:
+            message = self._use().forget((key or "").strip(), category)
         removed = message.startswith("Forgotten:")
         return {"removed": removed, "category": category, "message": message}
 
     def entries(self) -> list[dict[str, Any]]:
-        return self._manager.all_entries_for_ui()
+        with _path_lock:
+            return self._use().all_entries_for_ui()
 
     def forget_all(self) -> None:  # pragma: no cover - ferramenta de teste
-        self._manager.save_memory(self._manager._empty_memory())
+        with _path_lock:
+            manager = self._use()
+            manager.save_memory(manager._empty_memory())
 
 
 def register_memory_tools(
-    gateway: ToolGateway, memory: FactMemory | None = None
-) -> FactMemory:
-    """Registra remember/recall/forget no gateway (allowlist do ULTRON)."""
+    gateway: ToolGateway, memory: Any | None = None
+) -> Any:
+    """Registra remember/recall/forget no gateway (allowlist do ULTRON).
+
+    Aceita `FactMemory` (armazenamento bruto, compatível com a Etapa 4) ou um
+    `MemoryEngine` (memória tipada/versionada). Os dois expõem o mesmo contrato
+    mínimo `remember/recall/forget`, então o gateway não muda.
+    """
     memory = memory or FactMemory()
 
     def remember_executor(parameters: dict) -> str:
@@ -117,6 +152,7 @@ def register_memory_tools(
             parameters["key"],
             parameters["value"],
             parameters.get("category", "notes"),
+            parameters.get("memory_type"),
         )
         return json.dumps(facts, ensure_ascii=False)
 
@@ -143,6 +179,15 @@ def register_memory_tools(
         "description": "Memory category.",
         "enum": list(MEMORY_CATEGORIES),
     }
+    _memory_type_schema = {
+        "type": "STRING",
+        "description": (
+            "Memory type. 'user' for the person's preferences/identity, "
+            "'semantic' for stable facts, 'episodic' for a past event, "
+            "'procedural' for a validated how-to. Default: semantic."
+        ),
+        "enum": ["semantic", "user", "episodic", "procedural"],
+    }
 
     gateway.register(
         ToolContract(
@@ -159,6 +204,7 @@ def register_memory_tools(
                     "key": {"type": "STRING", "description": "Short fact key."},
                     "value": {"type": "STRING", "description": "Fact content."},
                     "category": _category_schema,
+                    "memory_type": _memory_type_schema,
                 },
                 "required": ["key", "value"],
             },
