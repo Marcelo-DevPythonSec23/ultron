@@ -97,6 +97,7 @@ Componentes reais (detalhes em `docs/context/MODULE_MAP.md`):
 | Model Router | `IMPLEMENTED` | `ultron_2_0/routing/`, `tests/test_routing.py` (41), modo `auto` opt-in |
 | Sistema Multiagente | `IMPLEMENTED` | `ultron_2_0/agents/`, `tests/test_agents.py` (19), 6 agentes iniciais |
 | MCP / agentes externos (Fase 5) | `IMPLEMENTED` | `ultron_2_0/integrations/`, `tests/test_integrations.py` (19), OpenCode + MCP |
+| Autonomia operacional (Fase 7) | `IMPLEMENTED` | `ultron_2_0/autonomy/`, `tests/test_autonomy.py` (21), planner/workflow/state/scheduler/recovery |
 
 ## 5. Restrições
 

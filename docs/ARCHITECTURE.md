@@ -243,6 +243,38 @@ Regras de projeto (AGENTS.md §4.4, §5.3):
 Integrado a `core_runtime.py` (adaptadores OpenCode + MCP registrados) e
 exposto via `orchestrator_bridge.status()["integrations"]`.
 
+### 3.3d Autonomia operacional — Agentes CLI e MCP (Fase 7)
+
+O `WorkflowEngine` (`ultron_2_0/autonomy/workflow_engine.py`) permite que o
+ULTRON planeje e execute fluxos de trabalho complexos, sem criar um segundo
+orquestrador conversacional: apenas decompõe objetivos, delega passos aos
+orquestradores existentes (AgentOrchestrator Fase 4, IntegrationOrchestrator
+Fase 5) e monitora a execução.
+
+Componentes do pacote `autonomy/`:
+
+| Módulo | Responsabilidade |
+|---|---|
+| `planner.py` | `Planner` — cria um `Workflow` a partir de um objetivo, com limites de segurança |
+| `task_decomposer.py` | `TaskDecomposer` — decomposição determinística de objetivo em passos com alvos sugeridos |
+| `workflow_engine.py` | `WorkflowEngine` — executa workflows distribuindo passos, respeitando dependências, limites e recuperação |
+| `state_tracker.py` | `StateTracker` — persiste estado de workflows para recuperação após falhas |
+| `scheduler.py` | `Scheduler` — agenda workflows por horário de execução |
+| `recovery_manager.py` | `RecoveryManager` — planeja recuperação de workflows `FAILED`/`PAUSED` |
+
+Regras de projeto (AGENTS.md §4.7):
+
+- Separar planejamento de execução (o Planner apenas planeja, o Engine executa).
+- Aplicar limites de recursos e tempo (`max_steps`, `max_execution_seconds`).
+- Exigir autorização para operações sensíveis (`require_human_approval`).
+- Registrar decisões e resultados (StateTracker, ExecutionMonitor).
+- Evitar loops de execução (dependências lineares, estados bem definidos).
+- Limites de tentativas por passo (`max_attempts`).
+- Preservar possibilidade de interrupção humana (`PAUSED`, retry/skip).
+
+Integrado a `core_runtime.py` e exposto via
+`orchestrator_bridge.status()` (workflows, agendamentos, recuperação).
+
 ### 3.4 Ferramentas
 
 Ver `docs/TOOLS.md` para contratos completos. Resumo do subset curado:

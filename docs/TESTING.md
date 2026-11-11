@@ -3,7 +3,7 @@
 ## 1. Como executar
 
 ```bash
-# suíte do ULTRON 2.0 (231 testes)
+# suíte do ULTRON 2.0 (252 testes)
 cd ultron-2.0
 ./.venv/bin/python -m pytest -q
 
@@ -39,6 +39,7 @@ o proxy de ferramentas e a persistência reais sem rede.
 | `tests/test_agents.py` | 19 | Sistema Multiagente (Fase 4): registro/descoberta de agentes, ciclo de vida (pending→completed/failed), execução com resultado estruturado, validação (dados não confiáveis), falha e replanejamento com tentativas, concorrência com isolamento de arquivos, agente não encontrado sem quebrar o orquestrador, status sem credenciais, integração com core_runtime e bridge |
 | `tests/test_integrations.py` | 19 | Integrações externas (Fase 5): build_command OpenCode (comando real), parse de saída JSON e texto bruto, sanitização de segredos (AIza, sk-), integração desabilitada não executa, comando não encontrado tratado, timeout tratado, IntegrationRegistry (registro/listar/habilitar/desabilitar), IntegrationOrchestrator (criar tarefa, executar, não registrada, desabilitada), status sem credenciais, integração com core_runtime e bridge |
 | `tests/test_memory_phase6.py` | 16 | Evolução da Memória (Fase 6): compatibilidade memória existente, índice semântico opcional (fallback sem embeddings), busca semântica/híbrida, backup/restauração round-trip, criptografia opcional (sem dependência), generate_key_file |
+| `tests/test_autonomy.py` | 21 | Autonomia Operacional (Fase 7): decomposição determinística, planner, workflow engine (execução, limites de tempo/passos, recuperação), state tracker (persistência), scheduler, recovery manager |
 
 ## 3. Mapa com os testes do AGENTS.md
 
@@ -54,6 +55,7 @@ o proxy de ferramentas e a persistência reais sem rede.
 | **Fase 4 — Multiagente** | `tests/test_agents.py` (19) | registro/descoberta, ciclo de vida, execução, validação, falha/replanejamento, concorrência/isolamento de arquivos, integração runtime/bridge |
 | **Fase 5 — CLI/MCP** | `tests/test_integrations.py` (19) | build_command real, parse de saída, sanitização de segredos, integração desabilitada, comando não encontrado, timeout, registro/habilitar/desabilitar, orquestrador, integração runtime/bridge |
 | **Fase 6 — Evolução da Memória** | `tests/test_memory_phase6.py` (16) | compatibilidade memória existente, índice semântico opcional (fallback sem embeddings), busca semântica/híbrida, backup/restauração round-trip, criptografia opcional (sem dependência), generate_key_file |
+| **Fase 7 — Autonomia Operacional** | `tests/test_autonomy.py` (21) | decomposição determinística, planner, workflow engine, state tracker, scheduler, recovery manager, limites de tempo/passos |
 | **G — Falhas controladas** | `test_faults` (10) | provedor, dispositivo, subprocesso, conexão, parâmetro, timeout, tool inexistente, TTS |
 
 ## 4. Resultados registrados
@@ -67,6 +69,7 @@ o proxy de ferramentas e a persistência reais sem rede.
 | 2026-11-11 | ULTRON 2.0 após a Fase 4 (Multiagente) | **196 passed** |
 | 2026-11-11 | ULTRON 2.0 após a Fase 5 (CLI/MCP) | **215 passed** |
 | 2026-11-11 | ULTRON 2.0 após a Fase 6 (Evolução da Memória) | **231 passed** |
+| 2026-11-11 | ULTRON 2.0 após a Fase 7 (Autonomia Operacional) | **252 passed** |
 | 2026-11-11 | Regressão lain (após a Fase 2) | **64 passed** |
 | 2026-11-10 | Memória (`tests/test_memory_engine.py`) | **17 passed** |
 | 2026-11-10 | Regressão lain (`lain/.venv`) | **64 passed** |

@@ -369,6 +369,47 @@ existente preservada (17 testes de `test_memory_engine.py` verdes).
 
 ---
 
+## ADR-018 — Autonomia Operacional (Fase 7)
+
+**Status:** Aceita
+**Contexto:** o ULTRON precisa planejar e executar fluxos de trabalho complexos,
+sem criar um segundo orquestrador conversacional que dispute autoridade com o
+núcleo (AGENTS.md §3.2).
+**Alternativas:** (a) criar um segundo ciclo conversacional/planejador
+independente (rejeitado — competiria com o orquestrador); (b) pacote de
+autonomia que decompõe objetivos e delega passos aos orquestradores existentes
+(AgentOrchestrator Fase 4, IntegrationOrchestrator Fase 5), sem tocar no
+histórico/memória/process_text.
+**Decisão:** (b) — criar pacote `ultron_2_0/autonomy/` com `Planner` (planeja
+Workflow a partir de objetivo), `TaskDecomposer` (decomposição determinística),
+`WorkflowEngine` (executa delegando aos orquestradores existentes),
+`StateTracker` (persiste estado para recuperação), `Scheduler` (agenda por
+horário), `RecoveryManager` (plana recuperação de FAILED/PAUSED) e contratos
+de dados (`Workflow`, `WorkflowStep`, `WorkflowState`, `StepState`,
+`StepDependency`).
+**Regras de projeto:**
+- separar planejamento de execução (Planner apenas planeja, Engine executa);
+- limites de recursos e tempo (max_steps, max_execution_seconds);
+- autorização para operações sensíveis (require_human_approval);
+- registrar decisões e resultados (StateTracker, ExecutionMonitor);
+- evitar loops (dependências lineares, estados bem definidos);
+- limites de tentativas por passo (max_attempts, replanejamento);
+- preservar interrupção humana (estado PAUSED, retry/skip de passo);
+- não executar código gerado por modelos (segurança: AGENTS.md §3.3).
+**Justificativa:** autonomia progressiva sem perder a autoridade central do
+ULTRON; falhas de passo não derivam em falha imediata do workflow se houver
+tentativas; recuperação após falhas e retomada de trabalhos interrompidos.
+**Consequências:** `core_runtime.py` pode criar `WorkflowEngine` (opcional,
+com AgentOrchestrator e IntegrationOrchestrator); `orchestrator_bridge.py`
+expõe estado de autonomia via `status()`; `WorkflowEngine` não toca no
+histórico, memória canônica nem `process_text`.
+**Evidência:** `tests/test_autonomy.py` (21 testes), suíte 2.0 com
+**252 passed**, regressão lain **64 passed**.
+**Fontes:** `ultron_2_0/autonomy/`, `tests/test_autonomy.py`,
+`docs/AUTONOMIA.md`.
+
+---
+
 ## Modelo para novas decisões
 
 ```markdown

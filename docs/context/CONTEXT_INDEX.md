@@ -43,6 +43,7 @@ exige (ver §5 de `CONTEXT.md`).
 | `docs/AGENTES.md` | Sistema Multiagente (Fase 4) | Antes de alterar coordenação de agentes |
 | `docs/INTEGRACOES.md` | Integrações externas CLI/MCP (Fase 5) | Antes de alterar integrações com agentes externos |
 | `docs/MEMORIA.md` | Evolução da Memória (Fase 6) | Antes de alterar busca semântica/backup/cripto da memória |
+| `docs/AUTONOMIA.md` | Autonomia Operacional (Fase 7) | Antes de alterar planejamento/execução de workflows |
 | `docs/ui/INTERFACE_AUDIT.md` | UI (auditoria) | Antes de alterar o HUD; o que veio da referência |
 | `docs/ui/UI_ARCHITECTURE.md` | UI (arquitetura) | Camadas, contratos HTTP, fluxo do turno |
 | `docs/ui/UI_COMPONENTS.md` | UI (componentes) | Componente → endpoint/dado real |

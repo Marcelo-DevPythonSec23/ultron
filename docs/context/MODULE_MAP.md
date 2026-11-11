@@ -265,6 +265,57 @@ Se não houver evidência, o estado é `UNKNOWN`.
   consolidate, expire, stats, etc.) preservados sem alteração de contrato.
 - **Estado:** `IMPLEMENTED` (extensão compatível).
 
+## 10. Autonomia operacional — Fase 7 (`ultron-2.0/ultron_2_0/autonomy/`)
+
+### `__init__.py`
+- **Responsabilidade:** exporta a API pública de autonomia
+  (`Planner`, `TaskDecomposer`, `WorkflowEngine`, `StateTracker`, `Scheduler`,
+  `RecoveryManager`, `Workflow`, `WorkflowStep`, contratos de estado).
+- **Estado:** `IMPLEMENTED`. **Testes:** `tests/test_autonomy.py` (21).
+
+### `contracts.py`
+- **Responsabilidade:** `Workflow`, `WorkflowStep`, `WorkflowState`,
+  `StepState`, `StepDependency`, `new_workflow_id`, `new_step_id` — contratos
+  de dados para planejamento e execução de fluxos de trabalho.
+- **Estado:** `IMPLEMENTED`.
+
+### `planner.py`
+- **Responsabilidade:** `Planner` — cria um `Workflow` a partir de um objetivo
+  usando o `TaskDecomposer`, com limites de segurança (max_steps,
+  max_execution_seconds, require_human_approval). Apenas planeja, não executa.
+- **Estado:** `IMPLEMENTED`.
+
+### `task_decomposer.py`
+- **Responsabilidade:** `decompose()` / `build_steps()` / `TaskDecomposer` —
+  decomposição determinística de objetivo em passos com alvos sugeridos
+  (agente Fase 4 ou integração Fase 5) e dependências lineares. Sem chamada
+  de modelo de IA.
+- **Estado:** `IMPLEMENTED`.
+
+### `workflow_engine.py`
+- **Responsabilidade:** `WorkflowEngine` — executa um `Workflow` distribuindo
+  passos ao `AgentOrchestrator` (Fase 4) ou `IntegrationOrchestrator` (Fase 5),
+  respeitando dependências, limites de recursos/tempo, limites de tentativas e
+  recuperação após falhas.
+- **Estado:** `IMPLEMENTED`.
+
+### `state_tracker.py`
+- **Responsabilidade:** `StateTracker` — rastreia e persiste o estado de
+  workflows em disco (JSON) para recuperação após falhas e retomada de
+  trabalhos interrompidos. Sem credenciais nem conteúdo sensível.
+- **Estado:** `IMPLEMENTED`.
+
+### `scheduler.py`
+- **Responsabilidade:** `Scheduler` — fila de prioridade de workflows
+  agendados por horário de execução (`schedule`, `due`, `pending`, `cancel`).
+- **Estado:** `IMPLEMENTED`.
+
+### `recovery_manager.py`
+- **Responsabilidade:** `RecoveryManager` — detecta workflows `FAILED`/`PAUSED`
+  e planeja ações de recuperação (retry de passo com tentativas, retomada de
+  pausado, pular passo com tentativas esgotadas).
+- **Estado:** `IMPLEMENTED`.
+
 ## 8. Integrações externas — Fase 5 (`ultron-2.0/ultron_2_0/integrations/`)
 
 ### `__init__.py`
