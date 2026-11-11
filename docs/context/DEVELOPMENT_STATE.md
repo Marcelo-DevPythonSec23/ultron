@@ -72,7 +72,7 @@ ultron-2.0/ultron_2_0/
 | 2 — Autorização interativa | `IMPLEMENTED` | `authorization.py` + CLI `[s/N]` + HUD `/api/approvals`; 128 testes verdes |
 | 2.5 — Interface (`INTERFACE.md`) | `IMPLEMENTED` | auditoria + HUD reconstruído (`docs/ui/`), 21 testes de HUD, 136 verdes |
 | 3 — Model Router | `IMPLEMENTED` | `ultron_2_0/routing/`, `tests/test_routing.py` (41), modo `auto`, fallback opt-in |
-| 4 — Multiagente | `PLANNED` | sem código |
+| 4 — Multiagente | `IMPLEMENTED` | `ultron_2_0/agents/`, `tests/test_agents.py` (19), 6 agentes iniciais, integrado ao runtime |
 | 5 — CLI/MCP | `PLANNED` | sem adaptadores |
 | 6 — Evolução da memória | `PARTIAL` | lexical implementado; embeddings/cripto/backup `PLANNED` |
 | 7 — Autonomia operacional | `PLANNED` | sem planner/workflow |
@@ -97,7 +97,8 @@ ultron-2.0/ultron_2_0/
 | `test_web.py` | 21 | HUD + aprovações + métricas/atividade reais |
 | `test_docs.py` | 5 | caminhos/índice/links documentais |
 | `test_routing.py` | 41 | Model Router: tarefa, catálogo, política, retry, fallback, timeout, streaming, config env, modo `auto`, integração bridge |
-| **Total** | **177** | |
+| `test_agents.py` | 19 | Sistema Multiagente (Fase 4): registro/descoberta, ciclo de vida, execução, validação, falha/replanejamento, concorrência/isolamento de arquivos, status sem credenciais, integração runtime/bridge |
+| **Total** | **196** | |
 
 Regressão do núcleo: **64** testes em `lain/`.
 

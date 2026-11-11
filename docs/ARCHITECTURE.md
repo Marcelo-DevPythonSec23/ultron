@@ -25,6 +25,7 @@ Orchestrator do lain          ← ÚNICO ciclo de conversa, contexto e persistê
               └── MemoryInjectionProvider  ← extensão 2.0 (memória por turno)
   │              └── ToolCallingProvider ← extensão 2.0, mesmo provider_id
   │                    └── ToolGateway   ← allowlist, validação, timeout, auditoria
+  M-bM-^TM-^B                    M-bM-^TM-^TM-bM-^TM-^@M-bM-^TM-^@ AgentOrchestrator  (Fase 4: coordenação de agentes especializados; não é orquestrador conversacional)
   │                          └── actions do Mark-LVI (worker threads)
   ▼
 Sistema operacional
@@ -168,6 +169,45 @@ Regras de projeto (ADR-014):
 - retry classifica transitórios como repetíveis e definitivos como não
   repetíveis; a última exceção é propagada sem embrulho;
 - métricas e snapshots nunca expõem credenciais (`sanitize_error`).
+
+### 3.3b Sistema Multiagente (Fase 4)
+
+O `AgentOrchestrator` (`ultron_2_0/agents/agent_orchestrator.py`) é a
+autoridade central de coordenação de agentes especializados. Não é um
+segundo orquestrador conversacional: não toca no histórico, na memória
+canônica nem no `process_text`. Ele coordena agentes sob solicitação do
+ULTRON, com isolamento de contexto e rastreabilidade.
+
+Componentes do pacote `agents/`:
+
+| Módulo | Responsabilidade |
+|---|---|
+| `agent_orchestrator.py` | `AgentOrchestrator` — ciclo de vida das tarefas, delegação, validação, monitoramento |
+| `agent_registry.py` | `AgentRegistry` — registro e descoberta de agentes por tipo/capacidade |
+| `agent_task.py` | `AgentTask`, `AgentResult`, `AgentCapability`, `TaskState` — contratos de dados |
+| `task_queue.py` | `TaskQueue` — fila com isolamento de arquivos para tarefas concorrentes |
+| `agent_validator.py` | `AgentValidator` — validação determinística de resultados (não confiáveis até validar) |
+| `result_manager.py` | `ResultManager` — recebe, valida e armazena resultados para avaliação do ULTRON |
+| `execution_monitor.py` | `ExecutionMonitor` — observabilidade de execução (sem credenciais) |
+| `implementations.py` | 6 agentes iniciais como adaptadores sobre ferramentas existentes |
+
+Regras de projeto (AGENTS.md §4, §5):
+
+- Agentes possuem responsabilidades delimitadas; cada um recebe apenas o
+  contexto necessário (isolamento).
+- A comunicação utiliza contratos estruturados (`AgentTask`/`AgentResult`).
+- Resultados são enviados ao ULTRON para avaliação centralizada.
+- Agentes não modificam diretamente a memória canônica sem autorização.
+- Alterações de código possuem isolamento e rastreabilidade.
+- Tarefas concorrentes evitam conflitos de arquivos (`TaskQueue`).
+- Resultados possuem identificação de origem.
+- Falhas de agentes são detectadas e registradas (replanejamento com tentativas).
+- A primeira implementação utiliza agentes externos existentes quando viável
+  (Fase 5: OpenCode, Claude Code, MCP); não cria modelos próprios para o que
+  já existe.
+
+Integrado a `core_runtime.py` (6 agentes iniciais registrados) e exposto via
+`orchestrator_bridge.status()["agents"]`.
 
 ### 3.4 Ferramentas
 

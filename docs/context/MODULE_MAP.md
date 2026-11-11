@@ -161,6 +161,75 @@ Se não houver evidência, o estado é `UNKNOWN`.
 - **Estado:** `IMPLEMENTED`.
 - **Testes:** `test_memory_engine.py`.
 
+## 7. Sistema Multiagente — Fase 4 (`ultron-2.0/ultron_2_0/agents/`)
+
+### `__init__.py`
+- **Responsabilidade:** exporta a API pública do sistema multiagente
+  (`AgentOrchestrator`, `AgentRegistry`, `AgentTask`, `AgentResult`,
+  `AgentCapability`, `TaskState`, `BaseAgent`, `TaskQueue`, `ResultManager`,
+  `AgentValidator`, `ExecutionMonitor`, e os agentes iniciais).
+- **Estado:** `IMPLEMENTED`. **Testes:** `tests/test_agents.py`.
+
+### `agent_task.py`
+- **Responsabilidade:** contratos de dados `AgentTask` (tarefa com ciclo de
+  vida `pending→assigned→running→review→completed/failed/cancelled`),
+  `AgentResult` (resultado com identificação de origem), `AgentCapability`
+  e `TaskState` (estados permitidos e transições válidas).
+- **Estado:** `IMPLEMENTED`.
+
+### `agent_registry.py`
+- **Responsabilidade:** `AgentRegistry` — catálogo central de agentes
+  especializados, registro, descoberta por tipo/capacidade e seleção para
+  tarefas. Preserva a autoridade central do ULTRON (nenhum histórico
+  paralelo nem memória independente).
+- **Estado:** `IMPLEMENTED`.
+
+### `agent_orchestrator.py`
+- **Responsabilidade:** `AgentOrchestrator` — autoridade central de
+  coordenação de agentes. Controla o ciclo de vida das tarefas, delega
+  execução a agentes via registry, coordena fila com isolamento de arquivos
+  (`TaskQueue`), valida resultados (`AgentValidator`/`ResultManager`) e
+  monitora (`ExecutionMonitor`). Não é um segundo orquestrador conversacional.
+- **Estado:** `IMPLEMENTED`. Integrado a `core_runtime.py` e exposto via
+  `orchestrator_bridge.status()["agents"]`.
+
+### `task_queue.py`
+- **Responsabilidade:** `TaskQueue` — fila ordenada com controle de
+  concorrência; evita que duas tarefas concorrentes modifiquem os mesmos
+  arquivos simultaneamente (AGENTS.md §5.4); respeita dependências entre
+  tarefas.
+- **Estado:** `IMPLEMENTED`.
+
+### `agent_validator.py`
+- **Responsabilidade:** `AgentValidator` — validação determinística de
+  resultados de agentes (dados não confiáveis até validar): identificação
+  de origem, consistência de task_id, conteúdo não vazio, arquivos dentro do
+  escopo, erro registrado em falhas.
+- **Estado:** `IMPLEMENTED`.
+
+### `result_manager.py`
+- **Responsabilidade:** `ResultManager` — recebe, valida e armazena
+  resultados de agentes; expõe ao `AgentOrchestrator` para avaliação
+  centralizada pelo ULTRON. Nunca aplica resultados automaticamente à
+  memória canônica.
+- **Estado:** `IMPLEMENTED`.
+
+### `execution_monitor.py`
+- **Responsabilidade:** `ExecutionMonitor` — observabilidade de execução:
+  tarefa, agente, tempo, estado, falhas, tentativas, validação. Sem
+  credenciais nem dados sensíveis nos logs.
+- **Estado:** `IMPLEMENTED`.
+
+### `implementations.py`
+- **Responsabilidade:** agentes iniciais especializados como adaptadores
+  sobre ferramentas existentes do ULTRON (não modelos próprios para o que
+  já existe): `DeveloperAgent` (inspeção/proposta de código), `ResearchAgent`
+  (pesquisa via web_search + memória), `SecurityAgent` (auditoria de
+  contratos e permissões), `QAAgent` (execução de testes),
+  `DatabaseAgent` (inspeção somente leitura de banco), `ArchitectureAgent`
+  (revisão de ADRs e decisões técnicas).
+- **Estado:** `IMPLEMENTED`. 6 agentes iniciais registrados no runtime.
+
 ## 2. Voz (`ultron-2.0/ultron_2_0/voice/`)
 
 | Módulo | Responsabilidade | Estado | Testes |

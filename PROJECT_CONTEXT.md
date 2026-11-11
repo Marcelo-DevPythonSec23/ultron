@@ -95,6 +95,7 @@ Componentes reais (detalhes em `docs/context/MODULE_MAP.md`):
 | Confirmação interativa de ações destrutivas | `PLANNED` (gate recusa) | `test_memory_tools.py` |
 | Actions de escrita/execução | `BLOCKED` por segurança | `docs/INTEGRATION_MAP.md` |
 | Model Router | `IMPLEMENTED` | `ultron_2_0/routing/`, `tests/test_routing.py` (41), modo `auto` opt-in |
+| Sistema Multiagente | `IMPLEMENTED` | `ultron_2_0/agents/`, `tests/test_agents.py` (19), 6 agentes iniciais |
 | MCP / agentes externos | `PLANNED` | — |
 
 ## 5. Restrições

@@ -242,6 +242,51 @@ ao router; `orchestrator_bridge.py` expõe `router_config` e
 
 ---
 
+## ADR-015 — Sistema Multiagente (Fase 4)
+
+**Status:** Aceita
+**Contexto:** o ULTRON precisa coordenar agentes especializados e delegar
+tarefas, preservando-se como a única autoridade de conversação, memória e
+orquestração, sem criar um segundo orquestrador conversacional.
+**Alternativas:** (a) criar um segundo ciclo conversacional independente
+(rejeitado por AGENTS.md §3.2 — disputaria autoridade com o núcleo);
+(b) camada de coordenação de agentes sobre o núcleo existente (duck typing,
+sem tocar no histórico/memória/process_text).
+**Decisão:** (b) — criar pacote `ultron_2_0/agents/` com `AgentOrchestrator`
+(autoridade central de coordenação), `AgentRegistry` (registro e descoberta),
+`AgentTask`/`AgentResult`/`AgentCapability`/`TaskState` (contratos
+estruturados), `TaskQueue` (fila com isolamento de arquivos para concorrência),
+`AgentValidator`+`ResultManager` (validação de resultados não confiáveis),
+`ExecutionMonitor` (observabilidade), e 6 agentes iniciais como adaptadores
+sobre ferramentas existentes (Developer, Research, Security, QA, Database,
+Architecture) — não modelos próprios para o que já existe.
+**Regras de projeto:**
+- responsabilidades delimitadas por agente;
+- isolamento de contexto por tarefa;
+- contratos estruturados (`AgentTask`/`AgentResult`);
+- resultados enviados ao ULTRON para avaliação centralizada;
+- agentes não modificam memória canônica sem autorização (Fase 2);
+- isolamento de arquivos em tarefas concorrentes (`TaskQueue`);
+- identificação de origem em todo resultado;
+- falhas detectadas e registradas (replanejamento com `max_attempts`);
+- exceções de agente não derrubam o núcleo;
+- primeira implementação utiliza agentes externos existentes quando viável
+  (Fase 5: OpenCode, Claude Code, MCP).
+**Justificativa:** coordenação de inteligência externa sem perder a autoridade
+central do ULTRON; isolamento e rastreabilidade; resultados não confiáveis até
+validar; compatibilidade com o `ProviderRegistry` (Fase 3) preservada.
+**Consequências:** `core_runtime.py` cria `AgentOrchestrator(max_concurrent=3)`
+e registra os 6 agentes iniciais; `orchestrator_bridge.py` expõe
+`status()["agents"]`; `AgentOrchestrator` não toca no histórico, memória
+canônica nem `process_text`.
+**Evidência:** `tests/test_agents.py` (19 testes), suíte 2.0 com **196 passed**,
+regressão lain **64 passed**, `secret_leak` equivalente no status do bridge.
+**Fontes:** `ultron_2_0/agents/`, `tests/test_agents.py`,
+`ultron_2_0/core_runtime.py`, `ultron_2_0/orchestrator_bridge.py`,
+`docs/AGENTES.md`.
+
+---
+
 ## Modelo para novas decisões
 
 ```markdown
