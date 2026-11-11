@@ -76,7 +76,7 @@ ultron-2.0/ultron_2_0/
 | 5 — CLI/MCP | `IMPLEMENTED` | `ultron_2_0/integrations/`, `tests/test_integrations.py` (19), OpenCode + MCP, integrado ao runtime |
 | 6 — Evolução da memória | `IMPLEMENTED` | `memory_semantic.py`, `memory_backup.py`, `memory_encryption.py`, `memory_engine.py` (métodos Fase 6), `tests/test_memory_phase6.py` (16) |
 | 7 — Autonomia operacional | `IMPLEMENTED` | `ultron_2_0/autonomy/`, `tests/test_autonomy.py` (21), planner/decomposer/engine/state/scheduler/recovery, integrado ao runtime |
-| 8 — Validação/estabilização | `PARTIAL` | suítes atuais verdes; faltam testes das fases novas |
+| 8 — Validação/estabilização | `IMPLEMENTED` | `docs/roadmap/ULTRON_21_FINAL_REPORT.md`, 252 testes 2.0 + 64 regressão lain |
 
 ## 4. Testes existentes
 
