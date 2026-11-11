@@ -330,6 +330,45 @@ memória canônica nem `process_text`.
 
 ---
 
+## ADR-017 — Evolução da Memória (Fase 6)
+
+**Status:** Aceita
+**Contexto:** o `MemoryEngine` já existia com busca léxica, versionamento,
+expiração, tombstone e isolamento de escopos. A Fase 6 expande a recuperação
+e o relacionamento de informações sem tornar embeddings/criptografia/backup
+dependências obrigatórias e sem alterar o `MemoryEngine` existente.
+**Alternativas:** (a) adicionar embeddings como dependência obrigatória
+(rejeitado — AGENTS.md §4.6 proíbe); (b) extensões opcionais que desativam
+graciosamente quando a dependência está ausente.
+**Decisão:** (b) — criar `memory_semantic.py` (`SemanticIndex`, busca semântica
+opcional via `sentence-transformers`), `memory_backup.py` (`backup_memory`/
+`restore_memory`, ZIP com manifesto sem expor conteúdo), `memory_encryption.py`
+(`MemoryEncryption`, criptografia opcional em repouso com `cryptography.fernet`,
+chave nunca exposta) e adicionar métodos ao `MemoryEngine`
+(`search_semantic`, `retrieve_hybrid`, `backup`, `restore`, `encryption_status`,
+`encrypt_memory_file`, `decrypt_memory_file`) sem alterar contratos existentes.
+**Regras de projeto:**
+- embeddings NÃO são dependência obrigatória (desativam graciosamente);
+- criptografia NÃO é dependência obrigatória (chave nunca exposta);
+- backup não destrutivo (só lê); restauração requer `confirm=True`;
+- consolidação continua somente leitura (não reescreve nem apaga fatos);
+- exclusão autorizada e isolamento de escopos preservados;
+- recuperação lexical preservada (`MemoryEngine.search` inalterado).
+**Justificativa:** expansão de recuperação e relacionamento de informações sem
+quebrar a memória existente nem impor dependências externas; falhas de
+dependência opcional não comprometem o núcleo.
+**Consequências:** `memory_engine.py` importa os 3 novos módulos e adiciona
+métodos Fase 6; `search_semantic`/`retrieve_hybrid` caem de volta para a busca
+léxica sem embeddings; `docs/MEMORIA.md` documenta a fase.
+**Evidência:** `tests/test_memory_phase6.py` (16 testes), suíte 2.0 com
+**231 passed**, regressão lain **64 passed**, compatibilidade com memória
+existente preservada (17 testes de `test_memory_engine.py` verdes).
+**Fontes:** `ultron_2_0/memory_semantic.py`, `ultron_2_0/memory_backup.py`,
+`ultron_2_0/memory_encryption.py`, `ultron_2_0/memory_engine.py`,
+`tests/test_memory_phase6.py`, `docs/MEMORIA.md`.
+
+---
+
 ## Modelo para novas decisões
 
 ```markdown

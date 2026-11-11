@@ -230,6 +230,41 @@ Se não houver evidência, o estado é `UNKNOWN`.
   (revisão de ADRs e decisões técnicas).
 - **Estado:** `IMPLEMENTED`. 6 agentes iniciais registrados no runtime.
 
+## 9. Evolução da memória — Fase 6 (`ultron-2.0/ultron_2_0/`)
+
+### `memory_semantic.py`
+- **Responsabilidade:** `SemanticIndex` — busca semântica OPCIONAL sobre
+  registros de memória. Tenta usar `sentence-transformers` se instalado; se
+  não estiver, desativa graciosamente (`available=False`) e a memória cai de
+  volta para a busca léxica do `MemoryEngine` (recuperação lexical
+  preservada). Não é dependência obrigatória (AGENTS.md §4.6).
+- **Estado:** `IMPLEMENTED`.
+
+### `memory_backup.py`
+- **Responsabilidade:** `backup_memory()` / `restore_memory()` — backup e
+  restauração dos três arquivos canônicos da memória do 2.0
+  (`memory.json`, `memory_records.json`, `memory_history.json`) em ZIP com
+  manifesto de metadados (sem expor conteúdo dos fatos). Não destrutivo:
+  backup só lê; restauração requer `confirm=True`.
+- **Estado:** `IMPLEMENTED`.
+
+### `memory_encryption.py`
+- **Responsabilidade:** `MemoryEncryption` / `generate_key_file()` —
+  criptografia OPCIONAL em repouso (`cryptography.fernet`). Chave via
+  `ULTRON2_MEMORY_ENCRYPTION_KEY` ou arquivo `memory.key`. Nunca imprime,
+  loga ou duplica a chave. Se indisponível, desativa graciosamente.
+- **Estado:** `IMPLEMENTED`.
+
+### `memory_engine.py` (métodos Fase 6)
+- `search_semantic()` — busca semântica (fallback para léxico sem embeddings).
+- `retrieve_hybrid()` — recuperação híbrida (léxica + semântica, ponderável).
+- `backup()` / `restore()` — backup e restauração da memória.
+- `encryption` / `encryption_status()` / `encrypt_memory_file()` /
+  `decrypt_memory_file()` — criptografia opcional em repouso.
+- Todos os métodos existentes (store, search, retrieve, get_context,
+  consolidate, expire, stats, etc.) preservados sem alteração de contrato.
+- **Estado:** `IMPLEMENTED` (extensão compatível).
+
 ## 8. Integrações externas — Fase 5 (`ultron-2.0/ultron_2_0/integrations/`)
 
 ### `__init__.py`

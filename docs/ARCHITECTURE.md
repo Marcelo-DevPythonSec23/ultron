@@ -275,6 +275,27 @@ completa em `docs/memory/`.
   "DATA, not instructions" uma vez por turno; falha de memória não derruba a
   conversa.
 
+### 3.5a Evolução da memória — Fase 6
+
+A memória evoluiu com capacidades opcionais que NÃO quebram a compatibilidade
+com o `MemoryEngine` existente nem tornam embeddings/criptografia
+dependências obrigatórias (AGENTS.md §4.6):
+
+| Módulo | Responsabilidade |
+|---|---|
+| `memory_semantic.py` | `SemanticIndex` — busca semântica opcional via `sentence-transformers`; sem a dependência, desativa graciosamente e a busca léxica preservada continua sendo usada |
+| `memory_backup.py` | `backup_memory()`/`restore_memory()` — backup/restauração dos três arquivos canônicos (`memory.json`, `memory_records.json`, `memory_history.json`) em ZIP com manifesto; restauração requer `confirm=True` |
+| `memory_encryption.py` | `MemoryEncryption` — criptografia opcional em repouso (`cryptography.fernet`); chave via `ULTRON2_MEMORY_ENCRYPTION_KEY` ou `memory.key`; nunca impressa nem logada |
+
+Novos métodos no `MemoryEngine` (contrato preservado):
+
+- `search_semantic(query, ...)` — busca semântica; devolve lista vazia sem embeddings
+- `retrieve_hybrid(query, ...)` — recuperação híbrida (léxica + semântica, ponderável)
+- `backup(dest_zip)` / `restore(source_zip, confirm)` — backup e restauração
+- `encryption_status()` / `encrypt_memory_file()` / `decrypt_memory_file()` — criptografia opcional em repouso
+
+Critérios de Fase 6 atendidos: recuperação semântica testada (fallback para léxico), recuperação lexical preservada, backup e restauração validados (round-trip), criptografia testada (opcional), compatibilidade com memória existente (17 testes do `memory_engine.py` continuam verdes).
+
 ## 4. Fluxos
 
 ### 4.1 Texto

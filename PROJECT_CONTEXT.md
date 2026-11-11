@@ -85,7 +85,7 @@ Componentes reais (detalhes em `docs/context/MODULE_MAP.md`):
 | Memória explícita `remember/recall/forget` | `IMPLEMENTED` | `test_memory_tools.py` (8), `test_memory_engine.py` (17) |
 | Memória tipada/versionada/consolidação | `IMPLEMENTED` | `memory_engine.py`, `test_memory_engine.py`, `docs/memory/` |
 | Injeção de memória no prompt (por turno) | `IMPLEMENTED` | `memory_injection.py`, `test_memory_engine.py` |
-| Busca semântica (embeddings) | `PLANNED` | não há provedor nem dependência |
+| Busca semântica (embeddings) | `PARTIAL` | opcional via `memory_semantic.py` (não dependência obrigatória); lexical preservada |
 | STT Gemini Live (só transcrição) | `IMPLEMENTED` (requer chave/rede/microfone) | `test_voice_pipeline.py`, `test_voice_units.py` |
 | TTS Gemini / voz do sistema | `IMPLEMENTED` (validado ao vivo) | `docs/TESTING.md` |
 | Voz reusando o mesmo núcleo | `IMPLEMENTED` | `test_voice_pipeline.py`, `test_faults.py` |

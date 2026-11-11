@@ -45,7 +45,7 @@ ultron-2.0/ultron_2_0/
 | 14 | `forget` | `IMPLEMENTED` (só após aprovação) | `test_integration_tools.py` (aprovação/recusa), `test_authorization.py` |
 | 15 | Memória tipada/versionada/consolidação | `IMPLEMENTED` | `memory_engine.py`, `test_memory_engine.py` (17), `docs/memory/` |
 | 15a | Injeção de memória no prompt (1×/turno) | `IMPLEMENTED` | `memory_injection.py`, `test_memory_engine.py` |
-| 15b | Busca semântica (embeddings) | `PLANNED` | não há provedor/dependência |
+| 15b | Busca semântica (embeddings) | `PARTIAL` | opcional via `memory_semantic.py` (não dependência obrigatória); lexical preservada |
 | 16 | STT Gemini Live (só transcrição) | `IMPLEMENTED` | `stt_gemini.py`, `test_voice_units.py` |
 | 17 | STT em lote (arquivo) | `IMPLEMENTED` | `GeminiBatchTranscriber` |
 | 18 | TTS Gemini | `IMPLEMENTED` + validado ao vivo | `tts.py`, `docs/TESTING.md` |
@@ -74,7 +74,7 @@ ultron-2.0/ultron_2_0/
 | 3 — Model Router | `IMPLEMENTED` | `ultron_2_0/routing/`, `tests/test_routing.py` (41), modo `auto`, fallback opt-in |
 | 4 — Multiagente | `IMPLEMENTED` | `ultron_2_0/agents/`, `tests/test_agents.py` (19), 6 agentes iniciais, integrado ao runtime |
 | 5 — CLI/MCP | `IMPLEMENTED` | `ultron_2_0/integrations/`, `tests/test_integrations.py` (19), OpenCode + MCP, integrado ao runtime |
-| 6 — Evolução da memória | `PARTIAL` | lexical implementado; embeddings/cripto/backup `PLANNED` |
+| 6 — Evolução da memória | `IMPLEMENTED` | `memory_semantic.py`, `memory_backup.py`, `memory_encryption.py`, `memory_engine.py` (métodos Fase 6), `tests/test_memory_phase6.py` (16) |
 | 7 — Autonomia operacional | `PLANNED` | sem planner/workflow |
 | 8 — Validação/estabilização | `PARTIAL` | suítes atuais verdes; faltam testes das fases novas |
 
@@ -99,7 +99,8 @@ ultron-2.0/ultron_2_0/
 | `test_routing.py` | 41 | Model Router: tarefa, catálogo, política, retry, fallback, timeout, streaming, config env, modo `auto`, integração bridge |
 | `test_agents.py` | 19 | Sistema Multiagente (Fase 4): registro/descoberta, ciclo de vida, execução, validação, falha/replanejamento, concorrência/isolamento de arquivos, status sem credenciais, integração runtime/bridge |
 | `test_integrations.py` | 19 | Integrações externas (Fase 5): build_command OpenCode, parse de saída JSON/texto, sanitização de segredos, integração desabilitada, comando não encontrado, timeout, registro/habilitar/desabilitar, orquestrador (tarefa, não registrada, desabilitada), status sem credenciais, integração runtime/bridge |
-| **Total** | **215** | |
+| `test_memory_phase6.py` | 16 | Evolução da Memória (Fase 6): compatibilidade memória existente, índice semântico opcional (fallback sem embeddings), busca semântica/híbrida, backup/restauração round-trip, criptografia opcional (sem dependência), generate_key_file |
+| **Total** | **231** | |
 
 Regressão do núcleo: **64** testes em `lain/`.
 
@@ -113,8 +114,8 @@ Regressão do núcleo: **64** testes em `lain/`.
 4. `Mark-LVI-main` não é repo git.
 5. Captura automática de memória **não existe por decisão** (só `remember`).
 6. Consolidação e expiração são operações de API, sem agendador no runtime.
-7. Busca semântica (embeddings) não implementada; recuperação é lexical.
-8. Memória em JSON sem criptografia/backup automático (risco registrado).
+7. Busca semântica (embeddings) implementada como opcional (`memory_semantic.py`); não é dependência obrigatória. Recuperação lexical preservada.
+8. Memória em JSON com criptografia opcional (`memory_encryption.py`); backup/restauração (`memory_backup.py`) implementados e testados.
 
 ## 6. Dependências
 
