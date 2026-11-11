@@ -35,6 +35,7 @@ class OrchestratorBridge:
         enable_tools: bool = True,
         confirmation_handler: Any | None = None,
         authorization: Any | None = None,
+        router_config: Any | None = None,
     ) -> None:
         self.runtime = UltronCoreRuntime(
             project_root=project_root,
@@ -43,6 +44,7 @@ class OrchestratorBridge:
             enable_tools=enable_tools,
             confirmation_handler=confirmation_handler,
             authorization=authorization,
+            router_config=router_config,
         )
         self._conversation_id: str | None = None
 
@@ -160,4 +162,5 @@ class OrchestratorBridge:
             "database": _mask_db_url(runtime.settings.DATABASE_URL),
             "memory": str(runtime.memory.path) if runtime.memory else None,
             "pending_approvals": len(self.pending_actions()),
+            "router": runtime.router.status() if runtime.router is not None else None,
         }

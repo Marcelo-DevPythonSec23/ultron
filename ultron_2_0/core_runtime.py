@@ -8,13 +8,15 @@ repositórios originais não são modificados; o trabalho ocorre aqui):
     ConversationRepository / MessageRepository
     ChatService -> ContextManager -> PromptEngine
     ProviderRegistry (mock + gemini, cada um envolvido pelo ToolCallingProvider)
+    ModelRouter   <- Fase 3: seleção/fallback sobre o registry (autoridade)
     Orchestrator  <- o MESMO orquestrador do lain, único ciclo de conversa
 
 A hierarquia de autoridade do master prompt §5.1 fica:
 
     interface (CLI texto / futura voz)
         -> Orchestrator do lain (contexto, memória, prompt, persistência)
-            -> ProviderRegistry do lain
+            -> ModelRouter (Fase 3: seleção + fallback; NÃO é orquestrador)
+                -> ProviderRegistry do lain (autoridade de registro)
                 -> ToolCallingProvider (extensão 2.0: protocolo de ferramentas)
                     -> ToolGateway (contrato, validação, timeout)
                         -> actions do Mark-LVI (worker threads)
@@ -57,6 +59,7 @@ class UltronCoreRuntime:
         memory_budget_chars: int = 1200,
         authorization: "AuthorizationManager | None" = None,
         confirmation_handler: "ConfirmationHandler | None" = None,
+        router_config: "RouterConfig | None" = None,
     ) -> None:
         bootstrap.ensure_sys_paths(project_root)
         self._project_root, self._lain_root, self._marklvi_root = bootstrap.resolve_roots(
@@ -75,6 +78,8 @@ class UltronCoreRuntime:
         # pode vir pronto (HUD/testes) ou ser criado com o handler interativo.
         self._authorization = authorization
         self._confirmation_handler = confirmation_handler
+        # Fase 3: configuração do Model Router (env ULTRON_ROUTER_* por padrão).
+        self._router_config = router_config
 
         # Event loop dedicado em thread de background (padrão Mark-LVI).
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -84,6 +89,7 @@ class UltronCoreRuntime:
         self.settings = None
         self.orchestrator = None
         self.registry = None
+        self.router = None  # ModelRouter (Fase 3)
         self.gateway = None
         self.authorization = None  # AuthorizationManager (Fase 2)
         self.memory = None  # FactMemory (armazenamento canônico, compat. Etapa 4)
@@ -206,6 +212,14 @@ class UltronCoreRuntime:
 
         # Wiring final: o MESMO padrão de lain/app/api/dependencies.py
         # (repositórios -> ChatService -> ContextManager/PromptEngine -> Orchestrator).
+        #
+        # Fase 3: o Orchestrator recebe o ModelRouter (duck typing do registry).
+        # O ProviderRegistry continua sendo a autoridade de REGISTRO; o router
+        # apenas seleciona/encaminha e aplica timeout/retry/fallback.
+        from .routing import ModelRouter
+
+        self.router = ModelRouter(self.registry, config=self._router_config)
+
         chat_service = ChatService(
             conversation_repo=ConversationRepository(self._session),
             message_repo=MessageRepository(self._session),
@@ -217,11 +231,12 @@ class UltronCoreRuntime:
                 max_messages=self.settings.MAX_HISTORY_MESSAGES,
             ),
             prompt_engine=PromptEngine(),
-            provider_registry=self.registry,
+            provider_registry=self.router,
         )
         logger.info(
-            "Núcleo ULTRON 2.0 pronto (provider padrão=%s, ferramentas=%s)",
+            "Núcleo ULTRON 2.0 pronto (provider padrão=%s, roteador=%s, ferramentas=%s)",
             default_provider,
+            "ligado" if self.router.config.enabled else "desligado",
             ", ".join(self.gateway.names()) if self.gateway else "(desligadas)",
         )
         return self
@@ -265,7 +280,13 @@ class UltronCoreRuntime:
             raise RuntimeError(
                 "núcleo não iniciado — chame start()/start_async() primeiro"
             )
-        self.registry.register_provider(self._wrap(provider))
+        wrapped = self._wrap(provider)
+        if self.router is not None:
+            # O router delega o registro ao registry e atualiza o catálogo,
+            # preservando a autoridade do ProviderRegistry do lain.
+            self.router.register_provider(wrapped)
+        else:
+            self.registry.register_provider(wrapped)
 
     async def chat(
         self,
@@ -301,6 +322,7 @@ class UltronCoreRuntime:
             await self._engine.dispose()
             self._engine = None
         self.orchestrator = None
+        self.router = None
         logger.info("Núcleo ULTRON 2.0 encerrado.")
 
     # -- ponte síncrona -------------------------------------------------------

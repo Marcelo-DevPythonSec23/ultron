@@ -80,6 +80,26 @@ def _print_status(bridge: OrchestratorBridge) -> None:
     print("\n  ULTRON 2.0 — estado real do sistema")
     print(f"  provedor padrão : {status['default_provider']}")
     print(f"  providers        : {', '.join(status['providers'])}")
+    router = status.get("router") or {}
+    if router:
+        fallback = "ligado" if router["config"]["fallback_enabled"] else "desligado"
+        print(
+            f"  roteador         : {'ligado' if router['enabled'] else 'desligado'}"
+            f" | fallback {fallback}"
+            f" | timeout {router['config']['timeout_seconds']:g}s"
+            f" | tentativas {router['config']['max_attempts']}"
+        )
+        failures = {
+            pid: entry
+            for pid, entry in router.get("metrics", {}).items()
+            if entry.get("failures")
+        }
+        if failures:
+            resumo = ", ".join(
+                f"{pid}={entry['failures']} falha(s)"
+                for pid, entry in failures.items()
+            )
+            print(f"  falhas recentes  : {resumo}")
     print(f"  ferramentas      : {', '.join(status['tools']) or '(nenhuma)'}")
     print(f"  banco            : {status['database']}")
     print(f"  conversa         : {status['conversation_id'] or '(nova no próximo turno)'}")
