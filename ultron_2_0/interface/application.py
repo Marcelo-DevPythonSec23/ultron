@@ -11,6 +11,8 @@ from __future__ import annotations
 import logging
 
 from .mark_lvi_adapter import MarkLVIAdapter
+from .mark_lvi_ui import JarvisUI
+from .events.event_system import EventSystem, EventType
 
 logger = logging.getLogger("ultron2.interface.application")
 
@@ -25,6 +27,7 @@ class Application:
     def __init__(self) -> None:
         self._adapter = MarkLVIAdapter()
         self._logger = logging.getLogger("ultron2.interface.application.Application")
+        self._event_system = EventSystem()
 
     # -- inicialização -------------------------------------------------------
     def initialize(self, bridge=None) -> bool:
@@ -59,6 +62,17 @@ class Application:
     @property
     def bridge(self):
         return self._adapter.bridge
+
+    @property
+    def main_window(self):
+        """Retorna a janela principal (MainWindow da interface Mark LVI)."""
+        if self._adapter and self._adapter.ui:
+            return self._adapter.ui._win
+        return None
+
+    @property
+    def event_system(self) -> EventSystem:
+        return self._event_system
 
 
 __all__ = ["Application"]

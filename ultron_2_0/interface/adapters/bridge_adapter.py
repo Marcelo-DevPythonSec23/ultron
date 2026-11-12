@@ -204,5 +204,12 @@ class BridgeAdapter:
             self._logger.exception("voice_status falhou: %s", exc)
             return {"available": False, "error": str(exc)}
 
+    # -- status do bridge -----------------------------------------------------
+    def status(self) -> dict[str, Any]:
+        """Retorna o status do bridge do ULTRON."""
+        if self._bridge:
+            return self._bridge.status()
+        return {"ready": False}
+
 
 __all__ = ["BridgeAdapter"]

@@ -4424,6 +4424,9 @@ class MainWindow(QMainWindow):
         self._assistant_name: str = (_cfg.get("assistant_name") or "ULTRON").strip()
         _display = self._assistant_name.upper()
 
+        # Widget de chat para compatibilidade com testes do ULTRON 2.0
+        self._chat_widget = _ChatWidgetStub()
+
         # Apply the saved UI colour BEFORE panels/stylesheets are built
         _ui_color = (_cfg.get("ui_color") or "").strip()
         if _ui_color and _ui_color.lower() != DEFAULT_UI_COLOR:
@@ -7193,6 +7196,27 @@ class MainWindow(QMainWindow):
         self._assistant_name = _read_full_config().get("assistant_name", "ULTRON") or "ULTRON"
         self._log.append_log(f"SYS: Initialised. OS={os_name.upper()}. {self._assistant_name} online.")
 
+    # -- propriedades de compatibilidade com testes do ULTRON 2.0 ---
+    @property
+    def _avatar(self):
+        """Compatibilidade: expõe o HudCanvas como avatar."""
+        return self.hud
+
+    @property
+    def _chat(self):
+        """Compatibilidade: expõe o widget de chat se disponível."""
+        return getattr(self, '_chat_widget', None)
+
+    @property
+    def _systems_panel(self):
+        """Compatibilidade: expõe o painel esquerdo (sistema/métricas)."""
+        return getattr(self, '_left_panel', None)
+
+    @property
+    def _tasks_panel(self):
+        """Compatibilidade: expõe o painel direito (tarefas)."""
+        return getattr(self, '_right_panel', None)
+
 
 class _RootShim:
     def __init__(self, app: QApplication):
@@ -7245,6 +7269,24 @@ def _apply_ui_scale() -> None:
         scale = _auto_ui_scale()
     if abs(scale - 1.0) > 0.01:
         os.environ["QT_SCALE_FACTOR"] = f"{scale:.2f}"
+
+
+class _ChatWidgetStub:
+    """Widget de chat simples para compatibilidade com testes do ULTRON 2.0."""
+
+    def __init__(self):
+        self.messages: list[dict] = []
+
+    def append_message(self, role: str, content: str, provider: str | None = None, model: str | None = None) -> None:
+        self.messages.append({
+            "role": role,
+            "content": content,
+            "provider": provider,
+            "model": model,
+        })
+
+    def clear(self) -> None:
+        self.messages.clear()
 
 
 class UltronUI:

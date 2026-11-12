@@ -189,7 +189,9 @@ class UltronCoreRuntime:
             self.authorization = None
 
         default_provider = self._requested_default_provider or (
-            "nvidia" if self._has_nvidia_api_key() else "gemini"
+            "nvidia" if self._has_nvidia_api_key()
+            else "gemini" if self.settings.get_gemini_api_key()
+            else "mock"
         )
         self.registry = ProviderRegistry(default_provider_id=default_provider)
 
@@ -200,7 +202,9 @@ class UltronCoreRuntime:
         #
         # O provedor MOCK está disponível APENAS para testes/depuração explícita
         # (via UltronCoreRuntime.register_provider com um MockProvider).
-        # Ele NÃO é registrado automaticamente e NUNCA é o provedor padrão.
+        # Ele NÃO é registrado automaticamente quando há provedores reais
+        # disponíveis, servindo apenas como último recurso quando nenhum outro
+        # provedor está configurado.
         if self.settings.get_gemini_api_key():
             from app.intelligence.providers.gemini import GeminiProvider
 
@@ -234,6 +238,18 @@ class UltronCoreRuntime:
             logger.warning(
                 "NVIDIA_API_KEY ausente — provedor NVIDIA NIM não registrado. "
                 "Defina NVIDIA_API_KEY para usar o provedor NVIDIA NIM."
+            )
+
+        # Registra mock APENAS se nenhum provedor real estiver disponível,
+        # como último recurso para desenvolvimento/testes.
+        if self._requested_default_provider == "mock" or (
+            not self._has_nvidia_api_key() and not self.settings.get_gemini_api_key()
+        ):
+            mock = MockProvider()
+            self.registry.register_provider(self._wrap(mock))
+            logger.warning(
+                "Nenhum provedor real configurado — usando mock como fallback. "
+                "Defina NVIDIA_API_KEY ou GEMINI_API_KEY para provedores reais."
             )
 
         # Wiring final: o MESMO padrão de lain/app/api/dependencies.py

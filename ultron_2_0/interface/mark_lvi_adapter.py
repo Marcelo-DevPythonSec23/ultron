@@ -169,5 +169,36 @@ class MarkLVIAdapter:
     def bridge(self) -> OrchestratorBridge | None:
         return self._bridge
 
+    def status(self) -> dict[str, Any]:
+        """Retorna o status do bridge do ULTRON."""
+        if self._bridge:
+            return self._bridge.status()
+        return {"ready": False}
+
+    def providers(self) -> list[str]:
+        """Retorna a lista de provedores registrados."""
+        if self._bridge and self._bridge.runtime:
+            return self._bridge.runtime.registry.list_providers()
+        return []
+
+    def tools(self) -> list[dict[str, Any]]:
+        """Retorna os contratos de ferramentas do gateway."""
+        if self._bridge and self._bridge.runtime and self._bridge.runtime.gateway:
+            gateway = self._bridge.runtime.gateway
+            contracts = gateway.list_contracts() if hasattr(gateway, 'list_contracts') else []
+            return [
+                {
+                    "name": c.name,
+                    "description": getattr(c, "description", ""),
+                    "parameters": getattr(c, "schema", {}),
+                    "required": getattr(c, "required", []),
+                    "timeout": getattr(c, "timeout_seconds", None),
+                    "confirmation": getattr(c, "requires_confirmation", False),
+                    "permissions": getattr(c, "permissions", []),
+                }
+                for c in contracts
+            ]
+        return []
+
 
 __all__ = ["MarkLVIAdapter"]

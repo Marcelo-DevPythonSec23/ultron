@@ -75,7 +75,8 @@ class HolographicCanvas(QWidget):
         self.update()
 
     def state(self) -> str:
-        return str(self._state)
+        """Retorna o estado atual do avatar."""
+        return self._state.value
 
     # -- animação -----------------------------------------------------------
     def _tick(self) -> None:
