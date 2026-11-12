@@ -71,7 +71,7 @@ class UltronAdapter:
             else:
                 self._bridge = OrchestratorBridge(
                     database_url="sqlite+aiosqlite:///:memory:",
-                    default_provider=None,
+                    default_provider="mock",
                     enable_tools=True,
                 )
                 self._bridge.start()
