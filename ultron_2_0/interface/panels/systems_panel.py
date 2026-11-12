@@ -154,11 +154,7 @@ class SystemsPanel(QWidget):
             # Tenta obter métricas via system_snapshot (marklvi_actions)
             from ultron_2_0.marklvi_actions import system_snapshot
 
-            import asyncio
-
             try:
-                metrics = asyncio.to_thread(system_snapshot)
-                # system_snapshot é síncrono, não precisa de await
                 metrics = system_snapshot()
             except Exception:
                 metrics = None
