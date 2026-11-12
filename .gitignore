@@ -1,9 +1,8 @@
-# Projetos originais — somente leitura, nunca versionados neste repositório
+# Primeira versão do ULTRON
 /lain/
-/Mark-LVI-main/
 
-# Produto (repositório Git próprio em ultron-2.0/.git)
-/ultron-2.0/
+# Código original externo
+/Mark-LVI-main/
 
 # Ambiente e artefatos
 .venv/
@@ -12,7 +11,7 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 
-# Dados, bancos e segredos locais (nunca versionar)
+# Dados e segredos
 data/
 *.db
 *.db-journal
@@ -20,3 +19,4 @@ data/
 .env
 *.env
 api_keys.json
+
