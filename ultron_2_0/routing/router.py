@@ -66,7 +66,10 @@ class RouterConfig:
     """Configuração operacional do roteador (nenhuma credencial)."""
 
     enabled: bool = True
-    fallback_enabled: bool = False
+    # "primary": o provedor padrão continua primário (fallback só em falha).
+    # "auto": a política escolhe o provedor por tipo de tarefa a cada turno.
+    mode: str = "primary"
+    # "auto": a política escolhe o provedor por tipo de tarefa a cada turno.
     # "primary": o provedor padrão continua primário (fallback só em falha).
     # "auto": a política escolhe o provedor por tipo de tarefa a cada turno.
     mode: str = "primary"
@@ -75,6 +78,21 @@ class RouterConfig:
     base_backoff_seconds: float = 0.25
     max_backoff_seconds: float = 4.0
     cooldown_seconds: float = 30.0
+    allow_mock_fallback: bool = False
+    providers: tuple[str, ...] = ()
+    model_overrides: dict[str, dict[str, str]] = field(default_factory=dict)
+
+    # -- Regras de fallback automático (Fase 2.5) -----------------------------
+    # Se True, o roteador tenta automaticamente outro provedor quando o
+    # primário falha com erro transitório (rate limit, indisponível, timeout,
+    # conexão ou resposta inválida).
+    fallback_enabled: bool = False
+    # Número máximo de provedores alternativos a tentar quando o primário falha.
+    max_failover_attempts: int = 2
+    # Tempo de cooldown em segundos após falha de um provedor.
+    cooldown_seconds: float = 30.0
+    # Provedor mock nunca é usado como fallback automático (é provedor de
+    # teste/offline).
     allow_mock_fallback: bool = False
     providers: tuple[str, ...] = ()
     model_overrides: dict[str, dict[str, str]] = field(default_factory=dict)
