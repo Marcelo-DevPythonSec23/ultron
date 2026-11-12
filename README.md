@@ -131,16 +131,18 @@ A voz reusa o mesmo núcleo (`OrchestratorBridge.process_text`).
 
 O HUD mostra estado real (providers, ferramentas, banco, memória, áudio), conversa persistida e execução de ferramentas. Não há botões fictícios. O bind padrão é local; não exponha em rede sem revisar `docs/SECURITY.md`.
 
-### Interface desktop (PySide6)
+### Interface desktop (PySide6 — interface original do Mark LVI)
 
 ```bash
-./.venv/bin/python -m ultron_2_0.interface       # janela com avatar holográfico
+./.venv/bin/python -m ultron_2_0.interface
 ```
 
 Interface desktop completa com avatar holográfico, chat integrado ao núcleo,
-painéis de sistema e tarefas, controles de voz e diagnóstico. Requer
-`PySide6` (adicionado aos requisitos). Funciona em modo offscreen para
-desenvolvimento sem display gráfico.
+painéis de sistema e tarefas, controles de voz e diagnóstico. A interface é a
+reutilização direta da interface original do Mark-LVI (`Mark-LVI-main/ui.py`)
+adaptada para se conectar ao `OrchestratorBridge` do ULTRON 2.0. Requer
+`PySide6` e `numpy` (adicionados aos requisitos). Funciona em modo offscreen
+para desenvolvimento sem display gráfico.
 
 ---
 
