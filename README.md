@@ -23,7 +23,7 @@ O ULTRON 2.0 unifica o núcleo inteligente **ULTRON** (`lain/`) com a infraestru
 | 0 | Reavaliação do projeto | ✅ Concluída | `docs/roadmap/ULTRON_21_ASSESSMENT.md` |
 | 1 | Documentação e controle de versão | ✅ Concluída | repositório raiz, índice unificado, `TECHNICAL_DECISIONS.md` |
 | 2 | Autorização interativa | ✅ Concluída | `ultron_2_0/authorization.py`, 14 testes |
-| 2.5 | Interface (HUD web) | ✅ Concluída | `ultron_2_0/web/`, 21 testes, `docs/ui/` |
+| 2.5 | Interface (HUD web + desktop) | ✅ Concluída | HUD web: 21 testes; Interface desktop PySide6: 12 testes; `docs/ui/` |
 | 3 | Model Router | ✅ Concluída | `ultron_2_0/routing/`, 41 testes |
 | 4 | Multiagente | ✅ Concluída | `ultron_2_0/agents/`, 21 testes |
 | 5 | CLI/MCP | ✅ Concluída | `ultron_2_0/integrations/`, 19 testes |
@@ -52,17 +52,39 @@ Documentação da interface:
 - `docs/ui/UI_FUNCTIONALITY_MATRIX.md`
 - `docs/ui/UI_TESTING.md`
 
-### Interface desktop (Mark LVI — especificação detalhada no `INTERFACE.md` reescrito)
+### Interface desktop (PySide6 — especificação no `INTERFACE.md`)
 
-O `INTERFACE.md` atualizado especifica uma interface **desktop** completa (PySide6/Qt) com avatar, animações holográficas, sistema de voz, painéis de sistema/tarefas/memória/providers/plugins, personalização e desktop control.
+A interface desktop está **implementada e conectada ao backend** (mesmo `OrchestratorBridge` da CLI e HUD web — nenhum segundo cérebro, histórico paralelo ou mecanismo de decisão independente).
 
-**Limitação atual:** este ambiente **não possui `pip` nem `PySide6`/`PyQt6`/`tkinter` instalados**, portanto não é possível construir, executar e testar a interface desktop nesta sessão. A interface desktop especificada no `INTERFACE.md` requer:
-- Instalação de `PySide6` (ou `PyQt6`)
-- Criação da janela desktop, avatar, canvas holográfico e animações
-- Integração com o `OrchestratorBridge` e o `VoicePipeline`
-- Testes de interface
+- `ultron_2_0/interface/` — pacote completo (14 arquivos, ~2.400 linhas)
+  - `application.py` — Application Controller (ponto de entrada)
+  - `adapters/bridge_adapter.py` — conexão ao OrchestratorBridge (status, chat, ferramentas, memória, agentes, integrações, autonomia)
+  - `events/event_system.py` — EventSystem (eventos estruturados entre interface e backend)
+  - `themes/ultron_theme.py` — tema preto/vermelho do ULTRON (tokens CSS/QSS)
+  - `animations/holographic_canvas.py` — canvas holográfico com estados (IDLE, LISTENING, PROCESSING, SPEAKING, ERROR, etc.)
+  - `components/avatar.py` — avatar central com estados visuais
+  - `components/chat.py` — chat integrado ao núcleo
+  - `panels/systems_panel.py` — painel de sistema com métricas reais (CPU, RAM, GPU, etc.)
+  - `panels/tasks_panel.py` — painel de tarefas com estados reais (done, unverified, failed, started)
+  - `windows/main_window.py` — janela principal (layout 3 colunas + gavetas)
+- `tests/test_interface.py` — 12 testes aprovados (modo offscreen)
 
-O HUD web (Fase 2.5) permanece como a interface funcional implementada e testada, servindo como ferramenta de diagnóstico e interação até que a interface desktop seja construída.
+---
+
+## Ponto de entrada único — `main.py`
+
+```bash
+cd ultron-2.0
+./.venv/bin/python main.py              # menu interativo de escolha da interface
+./.venv/bin/python main.py --cli        # CLI de texto (REPL)
+./.venv/bin/python main.py --web        # HUD web (FastAPI/uvicorn)
+./.venv/bin/python main.py --desktop    # interface desktop PySide6 (janela)
+./.venv/bin/python main.py --demo       # estado + ferramentas e sai
+```
+
+O `main.py` inicia o software completo: conecta a interface escolhida ao mesmo
+`OrchestratorBridge` do núcleo ULTRON, sem criar um segundo cérebro, histórico
+paralelo ou mecanismo de decisão independente.
 
 ---
 
@@ -107,10 +129,12 @@ A voz reusa o mesmo núcleo (`OrchestratorBridge.process_text`).
 ./.venv/bin/python -m ultron_2_0.web             # http://127.0.0.1:8765
 ```
 
+O HUD mostra estado real (providers, ferramentas, banco, memória, áudio), conversa persistida e execução de ferramentas. Não há botões fictícios. O bind padrão é local; não exponha em rede sem revisar `docs/SECURITY.md`.
+
 ### Interface desktop (PySide6)
 
 ```bash
-./.venv/bin/python -m ultron_2_0.interface
+./.venv/bin/python -m ultron_2_0.interface       # http://127.0.0.1:8765
 ```
 
 Interface desktop completa com avatar holográfico, chat integrado ao núcleo,
@@ -127,7 +151,7 @@ O HUD mostra estado real (providers, ferramentas, banco, memória, áudio), conv
 ```bash
 # Suíte do ULTRON 2.0
 cd ultron-2.0
-./.venv/bin/python -m pytest -q          # 252 passed, 1 skipped
+./.venv/bin/python -m pytest -q          # 264 passed, 1 skipped
 
 # Regressão do núcleo original (inalterado)
 cd ../lain
@@ -136,7 +160,7 @@ cd ../lain
 
 | Suíte | Resultado |
 |-------|-----------|
-| ULTRON 2.0 (incl. Fases 3–7) | 252 passed, 1 skipped |
+| ULTRON 2.0 (incl. Fases 2.5–7) | 264 passed, 1 skipped |
 | Regressão lain | 64 passed |
 
 O teste pulado requer `cryptography` (não instalado) — criptografia em repouso opcional.
@@ -208,5 +232,5 @@ Remote configurado: `origin` → `https://github.com/Marcelo-DevPythonSec23/ultr
 - Wake word / VAD / barge-in não implementados.
 - Busca semântica com embeddings é opcional (`sentence-transformers` não instalado).
 - Criptografia em repouso é opcional (`cryptography` não instalada).
-- Interface desktop (Mark LVI) requer `PySide6`/`PyQt6` não disponíveis neste ambiente.
 - Testes de integração ao vivo com Gemini dependem de rede e quota da API.
+- A interface desktop requer bibliotecas do sistema Qt (`libxcb-cursor0` etc.) para exibição em modo janela; funciona em modo offscreen para desenvolvimento.
