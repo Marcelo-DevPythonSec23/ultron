@@ -1,214 +1,306 @@
-# ULTRON 2.0 — INVESTIGAÇÃO E CORREÇÃO DEFINITIVA DO BACKEND DA INTERFACE
+# ULTRON 2.1 — Automatic AI Provider Failover
+## Gemini API → NVIDIA NIM API
 
-## CONTEXTO
+### Objetivo principal
 
-Esta é a terceira tentativa de corrigir a comunicação entre a interface desktop e o backend.
+Implementar um sistema inteligente de alternância automática entre provedores de modelos de IA no ULTRON.
 
-A interface visual já está implementada e funcionando. NÃO reconstrua a interface, NÃO redesenhe os componentes e NÃO comece outra implementação.
+O Gemini será o provedor primário e a NVIDIA NIM será o provedor secundário.
 
-O problema atual está na comunicação entre a interface, o orquestrador e o provider de IA.
+Quando o Gemini atingir seu limite de utilização, esgotar sua cota ou apresentar uma indisponibilidade recuperável, o ULTRON deverá alternar automaticamente para NVIDIA NIM, sem exigir intervenção do usuário, reinicialização do sistema ou reenvio manual da mensagem.
 
-A captura de tela comprova que o sistema continua apresentando:
+O usuário deverá continuar conversando normalmente com o ULTRON, independentemente de qual provedor esteja ativo.
 
-`Jarvis [mock] (mock-model-v1): [Resposta Simulada ULTRON]`
+**IMPORTANTE:** O ULTRON continua sendo o núcleo cognitivo e a autoridade central do sistema. Os providers são apenas mecanismos de inferência.
 
-Também existe o registro:
+---
 
-`Dashboard not running - remote unavailable`
+### 1. Auditoria da arquitetura atual
 
-Quero uma investigação técnica da execução REAL, não apenas uma revisão dos arquivos.
+Antes de implementar qualquer alteração, examine:
 
-## FASE 1 — REPRODUZIR E RASTREAR
-
-Execute a aplicação desktop e rastreie uma mensagem desde o momento em que o usuário pressiona Enter ou clica no botão de envio.
-
-Identifique:
-
-1. Qual função recebe a mensagem.
-2. Qual callback da interface é executado.
-3. Qual adaptador recebe a mensagem.
-4. Se `OrchestratorBridge.process_text` é chamado.
-5. Qual instância do Orchestrator está sendo utilizada.
-6. Qual ModelRouter está sendo utilizado.
-7. Qual provider é selecionado.
-8. Qual modelo efetivamente recebe a requisição.
-9. Qual resposta retorna ao backend.
-10. Qual componente apresenta essa resposta na interface.
-
-Registre os arquivos, funções e classes envolvidos em cada etapa.
-
-Não presuma que a arquitetura documentada corresponde à execução atual. Verifique o código realmente executado.
-
-## FASE 2 — LOCALIZAR A ORIGEM DO MOCK
-
-Procure especificamente:
-
-- `mock-model-v1`
-- `MockProvider`
-- `MockLLMProvider`
-- `mock`
-- `Resposta Simulada ULTRON`
-- `Jarvis [mock]`
-- `provider_id`
-- `default_provider`
 - `ModelRouter`
 - `ProviderRegistry`
+- `LLMProvider`
+- `GeminiProvider`
+- `NVIDIAProvider`, caso já exista
+- `AgentOrchestrator`
+- `OrchestratorBridge`
+- Configurações e carregamento de variáveis de ambiente
+- Sistema atual de retry e backoff
+- Interface desktop e HUD web
 
-Descubra exatamente quem está selecionando o mock.
+Identifique o fluxo completo:
 
-Investigue:
+`User → Interface → OrchestratorBridge → Orchestrator → ModelRouter → Provider → Response`
 
-- Configuração padrão.
-- Variáveis de ambiente.
-- Bootstrap.
-- Registro de providers.
-- Injeção de dependências.
-- Inicialização da interface.
-- Fallback automático.
-- Adaptadores.
-- Configuração do ambiente de desenvolvimento.
+Verifique quais mecanismos já existem e reutilize-os.
 
-Não remova o mock dos testes. Ele pode continuar existindo para testes e demonstrações explícitas.
+Não crie implementações duplicadas.
 
-O que precisa desaparecer é sua utilização involuntária na execução normal.
+### 2. Configuração dos providers
 
-## FASE 3 — INTEGRAR NVIDIA DE VERDADE
+Configuração desejada:
 
-Verifique se existe implementação real do provider NVIDIA.
+```python
+PROVIDER_SETTINGS = {
+    "primary": "gemini",
+    "fallback": "nvidia",
+    "auto_failover": True,
+    "auto_failback": True,
+    "max_retries_per_provider": 1,
+    "cooldown_seconds": 60,
+}
+```
 
-Se não existir, implemente-a seguindo o contrato `LLMProvider` utilizado pelo núcleo Lain.
+As configurações devem ser integradas ao sistema existente, sem obrigatoriamente utilizar esse formato literal.
 
-Configuração:
+Credenciais:
 
-- Provider: NVIDIA
-- Base URL: `https://integrate.api.nvidia.com/v1`
-- Credencial: `NVIDIA_API_KEY`
-- Modelo: identificador NVIDIA válido e configurável.
+- `GEMINI_API_KEY`
+- `NVIDIA_API_KEY`
 
-Não invente modelos.
+Regras:
 
-Utilize a compatibilidade OpenAI quando suportada pelo endpoint e pelo modelo selecionado.
+- Nunca inserir credenciais diretamente no código.
+- Nunca registrar chaves em logs.
+- Nunca expor credenciais na interface.
+- Não alterar arquivos `.env` originais.
+- Não sobrescrever configurações existentes.
 
-Não altere o núcleo original `lain/`.
+### 3. Detecção inteligente de falhas
 
-Implemente a integração exclusivamente na camada do ULTRON 2.0, respeitando o contrato existente.
+Criar classificação de erros por provider.
 
-Verifique se o registro de providers do núcleo permite registrar o provider NVIDIA sem alterar arquivos originais.
+**Erros recuperáveis:**
 
-Se não permitir, apresente a limitação técnica e implemente um adaptador compatível dentro do ULTRON 2.0.
+- HTTP 429: rate limit ou cota excedida.
+- RESOURCE_EXHAUSTED: limite de utilização.
+- HTTP 500: erro interno transitório.
+- HTTP 502: bad gateway.
+- HTTP 503: serviço indisponível.
+- HTTP 504: gateway timeout.
+- Timeout de conexão.
+- Falhas transitórias de rede.
 
-## FASE 4 — CORRIGIR A INICIALIZAÇÃO
+**Erros que não devem provocar failover indiscriminado:**
 
-O provider NVIDIA deve ser selecionado como padrão na execução normal.
+- HTTP 400: requisição inválida.
+- HTTP 401: credencial inválida.
+- HTTP 403: permissão negada.
+- Modelo inexistente ou incompatível.
+- Parâmetros inválidos.
 
-O comportamento esperado é:
+Distinguir rate limit temporário de esgotamento de cota diária quando as informações do provider permitirem.
 
-`Desktop UI → Bridge → Orchestrator → NVIDIA Provider → API NVIDIA → Response → Desktop UI`
+Respeitar `Retry-After` quando fornecido.
 
-Se a credencial estiver ausente, informe o problema.
+Não realizar tentativas infinitas.
 
-Se a API retornar erro, informe o problema.
+### 4. Sistema automático de failover
 
-Se houver HTTP 429, respeite o limite e o Retry-After.
+Implementar o seguinte comportamento:
 
-NUNCA apresente uma resposta simulada como resposta real.
+1. Receber a solicitação do usuário.
+2. Consultar o provider primário.
+3. Enviar a requisição ao Gemini.
+4. Se a resposta for bem-sucedida, retornar normalmente.
+5. Se ocorrer uma falha recuperável, classificar o erro.
+6. Se a política permitir, ativar NVIDIA NIM.
+7. Reenviar a mesma solicitação lógica ao provider secundário.
+8. Receber a resposta.
+9. Retornar a resposta ao mesmo fluxo de conversa.
+10. Registrar a mudança de provider.
 
-NUNCA declare o ULTRON conectado apenas porque a janela abriu.
+A troca deve acontecer dentro do ModelRouter, sem criar outro orquestrador.
 
-## FASE 5 — DIAGNÓSTICO DE STATUS
+### 5. Preservação integral do contexto
 
-Implemente ou corrija um diagnóstico de conexão que diferencie:
+O failover não pode causar:
 
-- Interface inicializada.
-- Backend inicializado.
-- Orquestrador inicializado.
-- Provider configurado.
-- Provider autenticado.
-- API acessível.
-- Última requisição bem-sucedida.
+- Perda do histórico.
+- Duplicação de mensagens.
+- Criação de outra conversa.
+- Reinicialização do Orchestrator.
+- Alteração indevida da memória.
+- Perda do system prompt.
+- Repetição de ferramentas que já produziram efeitos externos.
 
-Não confunda `ULTRON ONLINE` com conexão comprovada à API.
+O provider secundário deverá receber o mesmo contexto lógico, histórico, instruções e parâmetros compatíveis.
 
-O indicador de provider deve exibir o provider e o modelo realmente selecionados.
+Adaptar apenas os parâmetros incompatíveis entre APIs.
 
-O indicador ONLINE só pode representar conexão com a API quando houver evidência de uma verificação bem-sucedida.
+**Atenção especial:** se uma requisição envolver execução de ferramentas, nunca repetir automaticamente uma ação externa sem verificar se ela já foi executada.
 
-## FASE 6 — INVESTIGAR DASHBOARD
+### 6. Circuit Breaker
 
-Investigue:
+Implementar controle de disponibilidade individual para cada provider.
 
-`Dashboard not running - remote unavailable`
+Estados:
 
-Descubra:
+- `HEALTHY`: provider disponível.
+- `DEGRADED`: falhas recentes ou desempenho reduzido.
+- `OPEN`: provider temporariamente indisponível.
+- `HALF_OPEN`: testes controlados de recuperação.
 
-- Quem gera essa mensagem.
-- Qual endereço está sendo consultado.
-- Se o dashboard é um serviço obrigatório.
-- Se existe uma URL antiga ou incorreta.
-- Se a interface está tentando conectar a uma instância remota desnecessária.
-- Se o backend local já está disponível.
+Comportamento:
 
-Não tente corrigir esse erro por tentativa e erro. Determine se ele está relacionado à comunicação com o backend principal.
+- Evitar enviar requisições repetidas a providers indisponíveis.
+- Aplicar cooldown.
+- Permitir teste de recuperação.
+- Recuperar automaticamente o provider quando estiver saudável.
+- Evitar alternância constante entre Gemini e NVIDIA.
 
-## FASE 7 — TESTE REAL DE PONTA A PONTA
+### 7. Failback automático
 
-Depois das correções:
+Quando o Gemini voltar a funcionar:
 
-1. Inicialize a interface.
-2. Confirme a inicialização do backend.
-3. Confirme a seleção do provider NVIDIA.
-4. Envie uma mensagem pela interface.
-5. Verifique que `process_text` foi chamado.
-6. Verifique que a requisição chegou à NVIDIA.
-7. Verifique que a resposta retornou.
-8. Verifique que a interface apresentou a resposta real.
-9. Verifique que o histórico foi persistido.
-10. Desconecte temporariamente a API e confirme que a interface apresenta erro, sem gerar uma resposta fictícia.
+1. Detectar a recuperação por uma tentativa controlada.
+2. Validar a resposta.
+3. Restaurar Gemini como provider primário.
+4. Manter NVIDIA como fallback.
+5. Registrar a recuperação.
 
-Faça uma chamada real somente se a credencial estiver configurada.
+Não interromper conversas em andamento durante a recuperação.
 
-Não exponha credenciais em logs ou relatórios.
+### 8. Interface visual
 
-## FASE 8 — REGRAS DE EXECUÇÃO
+Atualizar os indicadores de provider na interface desktop e no HUD web.
 
-- Não reconstruir a interface.
-- Não substituir componentes visuais.
-- Não criar outro orquestrador.
-- Não criar outro histórico.
-- Não criar outro banco.
-- Não modificar `lain/`.
-- Não modificar `Mark-LVI-main/`.
-- Não apagar funcionalidades existentes.
-- Não repetir comandos que já falharam sem analisar a causa.
-- Não realizar requisições repetidas durante HTTP 429.
-- Não instalar dependências desnecessárias.
-- Não considerar testes com fake providers como comprovação de integração real.
+Exibir:
 
-Antes de modificar qualquer arquivo, apresente a causa identificada.
+- Provider ativo.
+- Modelo utilizado.
+- Estado de disponibilidade.
+- Última mudança de provider.
+- Motivo do failover.
 
-Depois, implemente a correção.
+Exemplos:
 
-## FASE 9 — RELATÓRIO
+```text
+ULTRON STATUS
 
-Atualize:
+PROVIDER: GEMINI
+MODEL: gemini-model
+STATUS: HEALTHY
+```
 
-`docs/qa/BACKEND_CONNECTION_ROOT_CAUSE.md`
+```text
+ULTRON STATUS
 
-Inclua:
+PROVIDER: NVIDIA NIM
+MODEL: nvidia-model
+STATUS: FALLBACK ACTIVE
+REASON: GEMINI QUOTA EXCEEDED
+```
 
-- Causa raiz.
-- Caminho real da mensagem.
-- Local onde o mock era selecionado.
-- Implementação NVIDIA.
+A interface deve refletir o estado real do ModelRouter, sem simular disponibilidade.
+
+### 9. Integração com agentes
+
+Verificar a integração com:
+
+- AgentOrchestrator.
+- DeveloperAgent.
+- ResearchAgent.
+- SecurityAgent.
+- QAAgent.
+- DatabaseAgent.
+- ArchitectureAgent.
+- OpenCodeAdapter.
+- MCPAdapter.
+
+Os agentes que utilizam o ModelRouter deverão herdar a política de failover automaticamente, respeitando configurações específicas quando existirem.
+
+Não criar um provider paralelo para cada agente.
+
+Não modificar o funcionamento interno do OpenCode sem necessidade.
+
+### 10. Testes obrigatórios
+
+Criar testes automatizados para:
+
+1. Gemini funcionando normalmente.
+2. Gemini atingindo cota e NVIDIA assumindo.
+3. Gemini retornando HTTP 429.
+4. Gemini retornando HTTP 503.
+5. Gemini retornando HTTP 401.
+6. Gemini retornando HTTP 403.
+7. NVIDIA indisponível.
+8. Ambos os providers indisponíveis.
+9. Recuperação do Gemini.
+10. Circuit breaker.
+11. Cooldown.
+12. Preservação do histórico.
+13. Ausência de mensagens duplicadas.
+14. Ausência de execução duplicada de ferramentas.
+15. Integração com os agentes internos.
+16. Estado correto exibido na interface.
+
+Usar providers fake para testes automatizados.
+
+Criar testes de integração com APIs reais somente quando as credenciais e a rede estiverem disponíveis. Nunca consumir cotas reais na suíte padrão.
+
+### 11. Segurança
+
+Preservar integralmente:
+
+- ToolGateway.
+- Allowlist de ferramentas.
+- Validação de parâmetros.
+- Timeouts.
+- Autorizações.
+- Confirmações de ações destrutivas.
+- Auditoria.
+- Isolamento dos bancos de dados.
+- Separação entre os projetos originais e ULTRON 2.1.
+
+Não adicionar execução arbitrária de shell, `eval` ou `exec`.
+
+Não reduzir as restrições de segurança para facilitar a integração.
+
+### 12. Documentação
+
+Criar:
+
+`docs/qa/AUTOMATIC_PROVIDER_FAILOVER.md`
+
+Documentar:
+
+- Arquitetura anterior.
+- Arquitetura implementada.
+- Fluxo de failover.
+- Classificação de erros.
+- Circuit breaker.
+- Failback.
+- Configuração dos providers.
+- Testes executados.
+- Limitações conhecidas.
 - Arquivos modificados.
-- Resultado dos testes.
-- Evidência da chamada real.
-- Problemas restantes.
 
-## CRITÉRIO FINAL
+### 13. Critérios de conclusão
 
-A tarefa não está concluída até que eu possa abrir o ULTRON, enviar uma mensagem pela interface e receber uma resposta produzida pelo modelo NVIDIA através do backend real.
+A implementação só será considerada concluída quando:
 
-Não quero uma simulação, um protótipo ou uma demonstração.
+- Gemini funcionar como provider primário.
+- NVIDIA funcionar como fallback.
+- O failover acontecer automaticamente.
+- O contexto da conversa permanecer intacto.
+- Não existirem duplicações de mensagens.
+- Não houver loops infinitos de retry.
+- O estado dos providers for exibido corretamente.
+- Os testes de regressão passarem.
 
-Quero o sistema conectado.
+### INSTRUÇÃO FINAL
+
+Primeiro audite a arquitetura existente. Depois apresente um plano curto de implementação e execute as alterações.
+
+Não redesenhe a arquitetura do ULTRON.
+
+Não substitua componentes funcionais sem justificativa técnica.
+
+Não modifique `lain/` ou `Mark-LVI-main/`.
+
+Não invente resultados de testes.
+
+Priorize integração limpa, confiabilidade, observabilidade e preservação do núcleo cognitivo do ULTRON.
