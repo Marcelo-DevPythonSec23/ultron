@@ -23,19 +23,32 @@ def _run_cli() -> int:
     """Interface de texto (REPL/one-shot/demo)."""
     from ultron_2_0.cli import main
 
-    return main()
+    # Remove '--cli' de sys.argv para não conflitar com argparse do cli.py
+    import sys as _sys
+    _argv = [a for a in _sys.argv if a != "--cli"]
+    _old = _sys.argv
+    _sys.argv = _argv
+    try:
+        return main()
+    finally:
+        _sys.argv = _old
 
 
 def _run_web() -> int:
     """HUD web local."""
     import uvicorn
 
-    from ultron_2_0.web.server import build_app
+    from ultron_2_0.web.server import main as web_main
 
-    app = build_app()
-    print("HUD web ULTRON 2.0 — http://127.0.0.1:8765")
-    uvicorn.run(app, host="127.0.0.1", port=8765, log_level="info")
-    return 0
+    # Remove '--web' de sys.argv para não conflitar com argparse do web.server
+    import sys as _sys
+    _argv = [a for a in _sys.argv if a != "--web"]
+    _old = _sys.argv
+    _sys.argv = _argv
+    try:
+        return web_main()
+    finally:
+        _sys.argv = _old
 
 
 def _run_desktop() -> int:
