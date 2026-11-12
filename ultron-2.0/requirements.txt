@@ -1,0 +1,37 @@
+# Dependências do ULTRON 2.0 (terceira estrutura; lain/ e Mark-LVI-main/
+# são importados via sys.path e NÃO são instalados a partir daqui).
+#
+# Instalação (venv dedicado, decisão nº 5 da auditoria):
+#   uv venv .venv --python 3.12
+#   uv pip install --python .venv/bin/python -r requirements.txt
+#   uv pip install --python .venv/bin/python pytest pytest-asyncio
+
+# Núcleo lain (app.*): FastAPI + SQLAlchemy async + settings
+fastapi>=0.115
+sqlalchemy>=2.0
+aiosqlite>=0.20
+pydantic>=2.0
+pydantic-settings>=2.0
+python-dotenv>=1.0
+
+# Provedor gemini do lain — pin decidido na auditoria (decisão nº 1):
+# google-genai 3.0.0; o pin <3 do Mark-LVI não se aplica porque o Mark-LVI
+# não é executado pelo ULTRON 2.0 (só suas actions são importadas).
+google-genai>=3.0.0,<4
+
+# Actions do Mark-LVI no subset curado (system_status, web_search)
+psutil>=5.9
+ddgs>=9,<10
+
+# HUD web (Etapa 5) — servidor ASGI já usado pelo lain
+uvicorn>=0.30
+
+# Interface desktop (Fase 2.5 — INTERFACE.md) — PySide6 para janelas, canvas,
+# avatar e animações holográficas. Opcional: a interface funciona sem ela via
+# HUD web; necessária apenas para a aplicação desktop completa.
+PySide6>=6.5
+
+# Provedor NVIDIA NIM (Fase 2.5/7 — INTERFACE.md §3) — API compatível com
+# OpenAI em https://integrate.api.nvidia.com/v1. Necessário apenas para o
+# provedor NVIDIA NIM como provedor principal de modelo.
+openai>=1.0.0

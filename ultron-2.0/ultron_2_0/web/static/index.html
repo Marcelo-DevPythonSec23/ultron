@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>ULTRON 2.0</title>
+<style>
+  /* ── Tokens de identidade (um lugar só; §10 do master prompt) ───────────── */
+  :root {
+    --bg: #050506;
+    --bg-2: #0b0b0e;
+    --panel: rgba(17, 17, 21, 0.82);
+    --panel-solid: #111114;
+    --graphite: #26262d;
+    --line: rgba(255, 47, 61, 0.18);
+    --line-strong: rgba(255, 47, 61, 0.42);
+    --red-deep: #6e0a10;
+    --red: #b3121a;
+    --red-bright: #ff2f3d;
+    --red-glow: rgba(255, 47, 61, 0.35);
+    --text: #ece9e6;
+    --muted: #9a9490;
+    --faint: #6d6864;
+    --ok: #3ddc97;
+    --warn: #ffb020;
+    --err: #ff5a66;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, monospace;
+    --sans: system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    color: var(--text);
+    background:
+      radial-gradient(1100px 620px at 78% -12%, rgba(179, 18, 26, 0.22), transparent 62%),
+      radial-gradient(820px 540px at -8% 112%, rgba(179, 18, 26, 0.13), transparent 58%),
+      linear-gradient(158deg, var(--bg), var(--bg-2));
+    min-height: 100vh;
+  }
+  /* Scanlines holográficas discretas; puramente decorativas. */
+  body::after {
+    content: "";
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background: repeating-linear-gradient(
+      to bottom, rgba(255,255,255,0.016) 0 1px, transparent 1px 3px
+    );
+    mix-blend-mode: overlay;
+  }
+  body > * { position: relative; z-index: 1; }
+
+  :focus-visible {
+    outline: 2px solid var(--red-bright);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  .skip {
+    position: absolute; left: -999px; top: 8px; z-index: 50;
+    background: var(--red); color: #fff; padding: 8px 14px;
+    border-radius: var(--radius-sm); font-weight: 700;
+  }
+  .skip:focus { left: 12px; }
+
+  /* ── Cabeçalho ──────────────────────────────────────────────────────────── */
+  header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(90deg, rgba(179,18,26,0.16), transparent 48%);
+    backdrop-filter: blur(10px);
+    position: sticky; top: 0; z-index: 20;
+  }
+  .brand {
+    font-weight: 800; letter-spacing: 0.22em; font-size: 1.02rem;
+    text-transform: uppercase; white-space: nowrap;
+  }
+  .brand span { color: var(--red-bright); }
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 4px 11px; border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.03);
+    font-family: var(--mono); font-size: 0.68rem;
+    letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted);
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--faint); flex-shrink: 0;
+    transition: background .2s, box-shadow .2s;
+  }
+  .dot.ready { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+  .dot.busy { background: var(--warn); box-shadow: 0 0 10px var(--warn); animation: pulse 1.4s ease-in-out infinite; }
+  .dot.error { background: var(--err); box-shadow: 0 0 10px var(--err); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+  .spacer { flex: 1; }
+  .hdr-meta { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
+  .hdr-clock { font-family: var(--mono); font-size: 0.92rem; color: var(--text); letter-spacing: 0.06em; }
+  .icon-btn {
+    width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.03); color: var(--muted);
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    cursor: pointer; font-size: 1rem;
+  }
+  .icon-btn:hover { color: var(--red-bright); border-color: var(--line-strong); }
+  .icon-btn[aria-expanded="true"] { color: var(--red-bright); border-color: var(--red-bright); background: rgba(179,18,26,0.14); }
+
+  #banner {
+    display: none; margin: 12px 24px 0; padding: 10px 14px;
+    border: 1px solid rgba(255,90,102,0.4); border-radius: var(--radius-sm);
+    background: rgba(255,90,102,0.10); color: var(--err);
+    font-size: 0.85rem; font-family: var(--mono);
+  }
+  #banner.show { display: block; }
+
+  /* ── Grade principal ────────────────────────────────────────────────────── */
+  main {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr) 360px;
+    grid-template-areas: "left chat right";
+    gap: 16px;
+    padding: 16px 24px 28px;
+    max-width: 1600px; margin: 0 auto;
+    align-items: start;
+  }
+  .col-left { grid-area: left; display: flex; flex-direction: column; gap: 16px; }
+  .col-chat { grid-area: chat; min-width: 0; }
+  .col-right { grid-area: right; display: flex; flex-direction: column; gap: 16px; }
+
+  @media (max-width: 1200px) {
+    main {
+      grid-template-columns: 270px minmax(0, 1fr);
+      grid-template-areas: "left chat" "right right";
+    }
+    .col-right { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 780px) {
+    header { flex-wrap: wrap; gap: 10px; padding: 12px 16px; }
+    .hdr-clock, .hdr-meta { display: none; }
+    main {
+      grid-template-columns: 1fr;
+      grid-template-areas: "left" "chat" "right";
+      padding: 12px 14px 20px;
+    }
+    .col-right { grid-template-columns: 1fr; }
+  }
+
+  /* ── Painéis ────────────────────────────────────────────────────────────── */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    backdrop-filter: blur(8px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    overflow: hidden;
+  }
+  .panel h2 {
+    margin: 0; padding: 11px 15px;
+    font-size: 0.68rem; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--red-bright); font-weight: 700;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel h2 .count {
+    margin-left: auto; font-family: var(--mono); color: var(--muted);
+    letter-spacing: 0; font-weight: 500;
+  }
+  .panel .body { padding: 14px 15px; }
+
+  /* ── Núcleo holográfico ─────────────────────────────────────────────────── */
+  .core-wrap { position: relative; }
+  #core { display: block; width: 100%; height: 176px; }
+  .core-state {
+    text-align: center; font-family: var(--mono); font-size: 0.74rem;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--red-bright); margin-top: 2px;
+  }
+  .core-detail {
+    text-align: center; font-family: var(--mono); font-size: 0.64rem;
+    color: var(--muted); margin-top: 4px; min-height: 1em;
+  }
+
+  /* ── Sistema ────────────────────────────────────────────────────────────── */
+  .meter { margin-bottom: 10px; }
+  .meter:last-of-type { margin-bottom: 0; }
+  .meter-top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.08em;
+    color: var(--muted); margin-bottom: 4px; text-transform: uppercase;
+  }
+  .meter-top b { color: var(--text); font-weight: 600; }
+  .meter-track {
+    height: 5px; border-radius: 3px; overflow: hidden;
+    background: rgba(255,255,255,0.06);
+  }
+  .meter-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--red-deep), var(--red-bright));
+    transition: width .4s ease;
+  }
+  .meter-fill.warn { background: linear-gradient(90deg, #7a4a00, var(--warn)); }
+  .meter-fill.err { background: linear-gradient(90deg, #7a1018, var(--err)); }
+  .sys-note {
+    margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.07);
+    display: grid; gap: 4px; font-family: var(--mono); font-size: 0.66rem; color: var(--muted);
+  }
+  .sys-note .err { color: var(--err); }
+
+  /* ── Conversa ───────────────────────────────────────────────────────────── */
+  .chat { display: flex; flex-direction: column; min-height: 76vh; }
+  #messages {
+    flex: 1; overflow-y: auto; padding: 16px;
+    display: flex; flex-direction: column; gap: 12px;
+    max-height: 64vh;
+  }
+  #messages::-webkit-scrollbar { width: 6px; }
+  #messages::-webkit-scrollbar-thumb { background: var(--graphite); border-radius: 3px; }
+  .msg {
+    max-width: 88%; padding: 10px 13px; border-radius: 10px;
+    line-height: 1.5; font-size: 0.92rem; white-space: pre-wrap;
+    border: 1px solid transparent; overflow-wrap: anywhere;
+  }
+  .msg.user {
+    align-self: flex-end; background: rgba(179,18,26,0.16);
+    border-color: rgba(255,47,61,0.25); border-bottom-right-radius: 3px;
+  }
+  .msg.assistant {
+    align-self: flex-start; background: rgba(255,255,255,0.035);
+    border-color: rgba(255,255,255,0.07); border-bottom-left-radius: 3px;
+  }
+  .msg .meta {
+    margin-top: 6px; font-size: 0.66rem; color: var(--muted);
+    font-family: var(--mono);
+  }
+  .msg .calls { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .placeholder { color: var(--muted); font-size: 0.85rem; }
+  .pending { opacity: .78; }
+  .pending::after {
+    content: "▍"; color: var(--red-bright); animation: caret 1s steps(1) infinite;
+  }
+  @keyframes caret { 50% { opacity: 0; } }
+
+  .composer {
+    display: flex; gap: 9px; padding: 12px 14px;
+    border-top: 1px solid var(--line); flex-wrap: wrap;
+  }
+  .composer input[type="text"] {
+    flex: 1 1 240px; min-width: 0;
+    background: rgba(0,0,0,0.35); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    padding: 11px 13px; font-size: 0.95rem; outline: none;
+  }
+  .composer input[type="text"]:focus {
+    border-color: var(--red-bright);
+    box-shadow: 0 0 0 3px rgba(255,47,61,0.10);
+  }
+  .composer select, .drawer select {
+    background: rgba(0,0,0,0.35); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    padding: 9px 10px; font-family: var(--mono); font-size: 0.78rem;
+  }
+  button {
+    background: linear-gradient(180deg, rgba(255,47,61,0.22), rgba(179,18,26,0.28));
+    color: var(--text); border: 1px solid rgba(255,47,61,0.38);
+    border-radius: var(--radius-sm); padding: 10px 16px; font-weight: 600;
+    cursor: pointer; letter-spacing: 0.04em; font-size: 0.85rem;
+  }
+  button:hover:not(:disabled) { border-color: var(--red-bright); box-shadow: 0 0 16px var(--red-glow); }
+  button:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+  button.ghost { background: transparent; border-color: var(--line); font-weight: 500; color: var(--muted); }
+  button.ghost:hover:not(:disabled) { color: var(--text); }
+
+  /* ── Etiquetas ──────────────────────────────────────────────────────────── */
+  .tag {
+    display: inline-block; padding: 1px 7px;
+    border: 1px solid var(--line); border-radius: 999px;
+    font-size: 0.64rem; color: var(--muted); font-family: var(--mono);
+  }
+  .tag.warn { color: var(--warn); border-color: rgba(255,176,32,0.35); }
+  .tag.ok { color: var(--ok); border-color: rgba(61,220,151,0.35); }
+  .tag.err { color: var(--err); border-color: rgba(255,90,102,0.35); }
+
+  /* ── Autorizações ───────────────────────────────────────────────────────── */
+  .approval {
+    padding: 11px 0; border-bottom: 1px dashed rgba(255,255,255,0.07);
+    font-size: 0.82rem;
+  }
+  .approval:first-child { padding-top: 0; }
+  .approval:last-child { border-bottom: 0; padding-bottom: 0; }
+  .approval .name { color: var(--warn); font-weight: 700; font-family: var(--mono); }
+  .approval .args {
+    margin-top: 5px; padding: 8px; max-height: 120px; overflow: auto;
+    background: rgba(0,0,0,0.35); border: 1px solid var(--line);
+    border-radius: 6px; font-family: var(--mono); font-size: 0.7rem;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .approval .row { display: flex; gap: 8px; margin-top: 8px; }
+  .approval .row button { padding: 6px 12px; font-size: 0.76rem; }
+
+  /* ── Atividade e ferramentas ────────────────────────────────────────────── */
+  .feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .feed li {
+    display: grid; grid-template-columns: 54px 1fr; gap: 8px;
+    font-size: 0.76rem; line-height: 1.35;
+  }
+  .feed time { font-family: var(--mono); font-size: 0.66rem; color: var(--faint); }
+  .feed .kind {
+    font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .feed .kind.error, .feed .kind.approval { color: var(--err); }
+  .feed .kind.tool { color: var(--warn); }
+  .feed .kind.reply { color: var(--ok); }
+  .tool { padding: 10px 0; border-bottom: 1px dashed rgba(255,255,255,0.07); font-size: 0.8rem; }
+  .tool:first-child { padding-top: 0; }
+  .tool:last-child { border-bottom: 0; padding-bottom: 0; }
+  .tool .name { color: var(--text); font-weight: 600; font-family: var(--mono); font-size: 0.78rem; }
+  .tool .desc { color: var(--muted); margin-top: 3px; line-height: 1.35; }
+  .tool .tags { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+
+  /* ── Gavetas (setup/controles) ──────────────────────────────────────────── */
+  .drawer {
+    position: fixed; top: 64px; right: 24px; width: min(380px, calc(100vw - 28px));
+    max-height: calc(100vh - 88px); overflow-y: auto;
+    background: var(--panel-solid);
+    border: 1px solid var(--line-strong); border-radius: var(--radius);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+    z-index: 30; padding: 16px;
+  }
+  .drawer[hidden] { display: none; }
+  .drawer h3 {
+    margin: 0 0 4px; font-size: 0.72rem; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--red-bright);
+  }
+  .drawer p.hint { margin: 0 0 14px; color: var(--muted); font-size: 0.76rem; line-height: 1.45; }
+  .drawer .group {
+    border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px;
+    display: grid; gap: 8px;
+  }
+  .drawer .group:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+  .drawer label { font-size: 0.74rem; color: var(--muted); }
+  .drawer .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .drawer .row > * { flex: 1 1 auto; }
+  .kv { display: grid; grid-template-columns: 96px 1fr; gap: 5px 10px; font-size: 0.74rem; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; word-break: break-word; font-family: var(--mono); font-size: 0.7rem; }
+  code {
+    font-family: var(--mono); font-size: 0.7rem;
+    background: rgba(0,0,0,0.4); border: 1px solid var(--line);
+    border-radius: 4px; padding: 1px 5px; overflow-wrap: anywhere;
+  }
+  .switch {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    font-size: 0.78rem; color: var(--text);
+  }
+  .switch input { width: 18px; height: 18px; accent-color: var(--red); }
+  .drawer-close {
+    position: absolute; top: 12px; right: 12px;
+    background: transparent; border: 0; color: var(--muted);
+    font-size: 1rem; padding: 4px 8px;
+  }
+  .drawer-close:hover { color: var(--red-bright); box-shadow: none; }
+
+  footer {
+    padding: 0 24px 22px; color: var(--faint); font-size: 0.7rem;
+    text-align: center; font-family: var(--mono);
+  }
+
+  /* Movimento reduzido: nada anima; o estado continua legível por texto/cor. */
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+  body.compact #messages { max-height: 56vh; }
+  body.compact #core { height: 120px; }
+</style>
+</head>
+<body>
+<a class="skip" href="#messages">Ir para a conversa</a>
+
+<header>
+  <span class="dot" id="health" role="img" aria-label="estado do núcleo"></span>
+  <div class="brand">ULTRON <span>2.0</span></div>
+  <span class="pill" id="pill"><span id="pill-text">conectando</span></span>
+  <span class="hdr-meta" id="provider-default">—</span>
+  <div class="spacer"></div>
+  <span class="hdr-meta" id="uptime">—</span>
+  <span class="hdr-clock" id="clock">--:--:--</span>
+  <button class="icon-btn" id="open-controls" aria-expanded="false" aria-controls="controls" aria-label="Abrir controles" title="Controles">🎛</button>
+  <button class="icon-btn" id="open-setup" aria-expanded="false" aria-controls="setup" aria-label="Abrir configurações e ambiente" title="Configurações">⚙</button>
+</header>
+
+<div id="banner" role="alert"></div>
+
+<main>
+  <!-- ── Coluna esquerda: núcleo e sistema ───────────────────────────────── -->
+  <div class="col-left">
+    <section class="panel">
+      <h2>Núcleo</h2>
+      <div class="body core-wrap">
+        <canvas id="core" aria-hidden="true"></canvas>
+        <div class="core-state" id="core-state" role="status" aria-live="polite">inicializando</div>
+        <div class="core-detail" id="core-detail">aguardando o núcleo</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Sistema <span class="count" id="sys-sampled">—</span></h2>
+      <div class="body">
+        <div class="meter" id="m-cpu" role="progressbar" aria-label="uso de CPU" aria-valuemin="0" aria-valuemax="100">
+          <div class="meter-top"><span>CPU</span><b id="v-cpu">—</b></div>
+          <div class="meter-track"><div class="meter-fill" id="f-cpu"></div></div>
+        </div>
+        <div class="meter" id="m-ram" role="progressbar" aria-label="uso de memória" aria-valuemin="0" aria-valuemax="100">
+          <div class="meter-top"><span>RAM</span><b id="v-ram">—</b></div>
+          <div class="meter-track"><div class="meter-fill" id="f-ram"></div></div>
+        </div>
+        <div class="meter" id="m-temp" role="progressbar" aria-label="temperatura da CPU" aria-valuemin="0" aria-valuemax="100">
+          <div class="meter-top"><span>TEMP</span><b id="v-temp">—</b></div>
+          <div class="meter-track"><div class="meter-fill" id="f-temp"></div></div>
+        </div>
+        <div class="meter" id="m-gpu" role="progressbar" aria-label="uso de GPU" aria-valuemin="0" aria-valuemax="100">
+          <div class="meter-top"><span>GPU</span><b id="v-gpu">—</b></div>
+          <div class="meter-track"><div class="meter-fill" id="f-gpu"></div></div>
+        </div>
+        <div class="sys-note">
+          <span id="sys-uptime">uptime —</span>
+          <span id="sys-procs">processos —</span>
+          <span id="sys-error" class="err" hidden></span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ── Centro: conversa (autoridade única do núcleo) ───────────────────── -->
+  <div class="col-chat">
+    <section class="panel chat">
+      <h2>Conversa <span class="count" id="conversation-id">—</span></h2>
+      <div id="messages" role="log" aria-live="polite" aria-relevant="additions text"></div>
+      <form class="composer" id="composer" autocomplete="off">
+        <label class="sr-only" for="input" style="position:absolute;left:-999px">Mensagem para o ULTRON</label>
+        <input id="input" type="text" placeholder="fale com o ULTRON…" maxlength="20000" required>
+        <select id="provider-select" aria-label="provedor do próximo turno" title="Provider do próximo turno">
+          <option value="">padrão</option>
+        </select>
+        <button type="submit" id="send">Enviar</button>
+        <button type="button" id="new" class="ghost" title="Encerra a conversa atual; o histórico permanece no banco">Nova</button>
+      </form>
+    </section>
+  </div>
+
+  <!-- ── Coluna direita: autorizações, atividade, ferramentas ─────────────── -->
+  <div class="col-right">
+    <section class="panel" id="approvals-panel" hidden>
+      <h2>Autorizações pendentes <span class="count" id="approvals-count"></span></h2>
+      <div class="body" id="approvals"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Atividade <span class="count">sessão</span></h2>
+      <div class="body"><ul class="feed" id="activity"></ul></div>
+    </section>
+
+    <section class="panel">
+      <h2>Ferramentas <span class="count" id="tools-count"></span></h2>
+      <div class="body" id="tools"><span class="placeholder">carregando…</span></div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  Interface local · o núcleo ULTRON é a única autoridade de conversa e memória ·
+  voz em processo separado (<code>python -m ultron_2_0.voice</code>)
+</footer>
+
+<!-- ── Gaveta: controles do dia a dia ────────────────────────────────────── -->
+<aside class="drawer" id="controls" hidden role="dialog" aria-modal="false" aria-labelledby="controls-title">
+  <button class="drawer-close" id="close-controls" aria-label="Fechar controles">✕</button>
+  <h3 id="controls-title">Controles</h3>
+  <p class="hint">Tudo aqui muda o estado real do HUD ou do próximo turno.</p>
+
+  <div class="group">
+    <label for="ctrl-provider">Provedor do próximo turno</label>
+    <select id="ctrl-provider" aria-label="provedor do próximo turno"></select>
+  </div>
+
+  <div class="group">
+    <div class="switch">
+      <label for="reduce-motion">Reduzir movimento</label>
+      <input type="checkbox" id="reduce-motion">
+    </div>
+    <div class="switch">
+      <label for="compact">Layout compacto</label>
+      <input type="checkbox" id="compact">
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="row">
+      <button type="button" id="ctrl-new" class="ghost">Nova conversa</button>
+      <button type="button" id="ctrl-refresh" class="ghost">Atualizar estado</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <label>Voz (processo separado)</label>
+    <p class="hint" style="margin:0">
+      O HUD não abre microfone. O pipeline de voz roda no mesmo núcleo com
+      <code>python -m ultron_2_0.voice</code> — os dispositivos detectados
+      aparecem em Configurações.
+    </p>
+  </div>
+</aside>
+
+<!-- ── Gaveta: instalação e ambiente (uma vez) ───────────────────────────── -->
+<aside class="drawer" id="setup" hidden role="dialog" aria-modal="false" aria-labelledby="setup-title">
+  <button class="drawer-close" id="close-setup" aria-label="Fechar configurações">✕</button>
+  <h3 id="setup-title">Configurações e ambiente</h3>
+  <p class="hint">Valores lidos do núcleo em execução; nada é inventado.</p>
+
+  <div class="group">
+    <dl class="kv">
+      <dt>Núcleo</dt><dd id="set-ready">—</dd>
+      <dt>Provider</dt><dd id="set-provider">—</dd>
+      <dt>Providers</dt><dd id="set-providers">—</dd>
+      <dt>Banco</dt><dd id="set-db">—</dd>
+      <dt>Memória</dt><dd id="set-memory">—</dd>
+      <dt>Microfone</dt><dd id="set-mic">—</dd>
+      <dt>Alto-falante</dt><dd id="set-speaker">—</dd>
+      <dt>Agentes</dt><dd>não implementados (Fase 4)</dd>
+    </dl>
+  </div>
+
+  <div class="group">
+    <label>Comando do pipeline de voz</label>
+    <code id="voice-command">python -m ultron_2_0.voice</code>
+    <button type="button" id="copy-voice" class="ghost">Copiar comando</button>
+  </div>
+
+  <div class="group">
+    <label>Ferramentas registradas</label>
+    <div id="set-tools" class="hint" style="margin:0">—</div>
+  </div>
+</aside>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const health = $("health");
+  const banner = $("banner");
+  const messages = $("messages");
+  const activityList = $("activity");
+  const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  const state = {
+    busy: false,
+    ready: false,
+    error: false,
+    metrics: null,
+    providers: [],
+    tools: [],
+    status: null,
+    motion: reducedMotionQuery.matches,
+    compact: false,
+    coreState: "inicializando",
+    coreDetail: "aguardando o núcleo",
+  };
+
+  function showError(message) {
+    banner.textContent = message;
+    banner.classList.add("show");
+    state.error = true;
+    health.className = "dot error";
+    setCore("erro", message);
+  }
+  function clearError() {
+    banner.classList.remove("show");
+    state.error = false;
+  }
+
+  async function api(path, options = {}) {
+    const response = await fetch(path, {
+      headers: { "Content-Type": "application/json" },
+      ...options,
+    });
+    if (!response.ok) {
+      let detail = response.statusText;
+      try { detail = (await response.json()).detail || detail; } catch (_) {}
+      throw new Error(`${response.status}: ${detail}`);
+    }
+    return response.json();
+  }
+
+  function setText(id, value) { $(id).textContent = value ?? "—"; }
+
+  /* ── Núcleo holográfico (canvas) ──────────────────────────────────────── */
+  const canvas = $("core");
+  const ctx = canvas.getContext("2d");
+  let raf = 0;
+  let phase = 0;
+  let lastFrame = 0;
+
+  function resizeCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawCore(rect.width, rect.height, phase);
+  }
+
+  function corePalette() {
+    if (state.error) return "#ff5a66";
+    if (state.busy) return "#ffb020";
+    if (state.ready) return "#ff2f3d";
+    return "#6d6864";
+  }
+
+  function drawCore(w, h, t) {
+    if (!w || !h) return;
+    ctx.clearRect(0, 0, w, h);
+    const cx = w / 2, cy = h / 2;
+    const base = Math.min(w, h) * 0.36;
+    const color = corePalette();
+    const speed = state.busy ? 0.055 : state.ready ? 0.018 : 0.008;
+    const rings = [
+      { r: base, width: 1.4, alpha: 0.85, dash: [10, 14], dir: 1 },
+      { r: base * 0.76, width: 1.1, alpha: 0.55, dash: [4, 10], dir: -1 },
+      { r: base * 0.52, width: 1.6, alpha: 0.9, dash: [], dir: 1 },
+    ];
+    ctx.save();
+    ctx.translate(cx, cy);
+    for (const ring of rings) {
+      ctx.save();
+      ctx.rotate(t * speed * ring.dir * (ring.r > base * 0.7 ? 1 : 2));
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = ring.alpha;
+      ctx.lineWidth = ring.width;
+      ctx.setLineDash(ring.dash);
+      ctx.arc(0, 0, ring.r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    // Núcleo pulsante: reage ao estado real (ocioso/processando/erro).
+    const pulse = 0.5 + 0.5 * Math.sin(t * (state.busy ? 6 : 1.6));
+    const radius = base * (0.18 + (state.busy ? 0.06 : 0.02) * pulse);
+    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 3.2);
+    gradient.addColorStop(0, color);
+    gradient.addColorStop(0.35, color);
+    gradient.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 3.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+    // Marcas radiais discretas.
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 12; i += 1) {
+      const a = (i / 12) * Math.PI * 2 + t * 0.01;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * base * 1.06, Math.sin(a) * base * 1.06);
+      ctx.lineTo(Math.cos(a) * base * 1.16, Math.sin(a) * base * 1.16);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function animate(now) {
+    raf = 0;
+    if (state.motion) { drawCore(canvas.clientWidth, canvas.clientHeight, 0); return; }
+    if (document.hidden) return;
+    const dt = Math.min(0.05, (now - (lastFrame || now)) / 1000);
+    lastFrame = now;
+    phase += dt;
+    drawCore(canvas.clientWidth, canvas.clientHeight, phase);
+    raf = requestAnimationFrame(animate);
+  }
+  function kickAnimation() {
+    if (!raf) { lastFrame = 0; raf = requestAnimationFrame(animate); }
+  }
+
+  function setCore(text, detail) {
+    state.coreState = text;
+    state.coreDetail = detail || "";
+    setText("core-state", text);
+    setText("core-detail", detail || "");
+    if (state.motion) drawCore(canvas.clientWidth, canvas.clientHeight, 0);
+    else kickAnimation();
+  }
+
+  function syncHealth() {
+    if (state.error) { health.className = "dot error"; setText("pill-text", "erro"); return; }
+    if (state.busy) { health.className = "dot busy"; setText("pill-text", "processando"); return; }
+    health.className = state.ready ? "dot ready" : "dot";
+    setText("pill-text", state.ready ? "operacional" : "não iniciado");
+  }
+
+  /* ── Autorizações ─────────────────────────────────────────────────────── */
+  let approvalSignature = "";
+  async function loadApprovals() {
+    const panel = $("approvals-panel");
+    const container = $("approvals");
+    let pending = [];
+    try {
+      ({ pending } = await api("/api/approvals"));
+    } catch (_) {
+      panel.hidden = true;
+      return;
+    }
+    $("approvals-count").textContent = pending.length ? String(pending.length) : "";
+    if (!pending.length) {
+      approvalSignature = "";
+      panel.hidden = true;
+      container.innerHTML = "";
+      return;
+    }
+    panel.hidden = false;
+    const signature = pending.map((action) => action.action_id).join("|");
+    if (signature === approvalSignature) {
+      for (const card of container.querySelectorAll(".approval")) {
+        const action = pending.find((item) => item.action_id === card.dataset.action);
+        if (action) {
+          const remain = card.querySelector(".remain");
+          if (remain) remain.textContent = `expira em ${action.seconds_remaining}s`;
+        }
+      }
+      return;
+    }
+    approvalSignature = signature;
+    container.innerHTML = "";
+    for (const action of pending) {
+      const card = document.createElement("div");
+      card.className = "approval";
+      card.dataset.action = action.action_id;
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = action.tool;
+      const args = document.createElement("div");
+      args.className = "args";
+      args.textContent = JSON.stringify(action.arguments, null, 2);
+      const remain = document.createElement("div");
+      remain.className = "muted mono remain";
+      remain.style.cssText = "font-size:.66rem;margin-top:4px;color:var(--muted)";
+      remain.textContent = `expira em ${action.seconds_remaining}s`;
+      const row = document.createElement("div");
+      row.className = "row";
+      const yes = document.createElement("button");
+      yes.type = "button";
+      yes.textContent = "Autorizar";
+      yes.addEventListener("click", () => decide(action.action_id, "approve"));
+      const no = document.createElement("button");
+      no.type = "button";
+      no.className = "ghost";
+      no.textContent = "Recusar";
+      no.addEventListener("click", () => decide(action.action_id, "reject"));
+      row.append(yes, no);
+      card.append(name, args, remain, row);
+      container.appendChild(card);
+    }
+  }
+
+  async function decide(actionId, decision) {
+    try {
+      await api(`/api/approvals/${encodeURIComponent(actionId)}/${decision}`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+    } catch (error) {
+      showError(`autorização — ${error.message}`);
+    } finally {
+      await Promise.all([loadApprovals(), loadActivity()]);
+    }
+  }
+
+  /* ── Sistema ──────────────────────────────────────────────────────────── */
+  function setMeter(id, value, max = 100, unit = "%") {
+    const fill = $(`f-${id}`);
+    const label = $(`v-${id}`);
+    const meter = $(`m-${id}`);
+    if (value === null || value === undefined || Number.isNaN(value)) {
+      fill.style.width = "0%";
+      label.textContent = "—";
+      meter.removeAttribute("aria-valuenow");
+      meter.setAttribute("aria-valuetext", "indisponível");
+      return;
+    }
+    const pct = Math.max(0, Math.min(100, (value / max) * 100));
+    fill.style.width = `${pct}%`;
+    fill.className = "meter-fill" + (pct >= 85 ? " err" : pct >= 65 ? " warn" : "");
+    label.textContent = `${Math.round(value)}${unit}`;
+    meter.setAttribute("aria-valuenow", String(Math.round(value)));
+    meter.setAttribute("aria-valuetext", `${Math.round(value)}${unit}`);
+  }
+
+  async function loadSystem() {
+    const errorNode = $("sys-error");
+    try {
+      const { metrics, sampled_at } = await api("/api/system");
+      state.metrics = metrics;
+      setMeter("cpu", metrics.cpu_percent);
+      setMeter("ram", metrics.ram_percent);
+      setMeter("temp", metrics.cpu_temp_c, 100, "°C");
+      setMeter("gpu", metrics.gpu_percent);
+      $("sys-uptime").textContent = `uptime ${metrics.uptime}`;
+      $("sys-procs").textContent = `processos ${metrics.process_count}`;
+      $("sys-sampled").textContent = new Date(sampled_at * 1000)
+        .toLocaleTimeString("pt-BR", { hour12: false });
+      errorNode.hidden = true;
+      errorNode.textContent = "";
+    } catch (error) {
+      state.metrics = null;
+      for (const id of ["cpu", "ram", "temp", "gpu"]) setMeter(id, null);
+      $("sys-uptime").textContent = "uptime —";
+      $("sys-procs").textContent = "processos —";
+      $("sys-sampled").textContent = "—";
+      errorNode.hidden = false;
+      errorNode.textContent = `métricas indisponíveis — ${error.message}`;
+    }
+  }
+
+  /* ── Status ───────────────────────────────────────────────────────────── */
+  function fillProviderSelects(providers) {
+    const wanted = ["", ...providers];
+    for (const select of [$("provider-select"), $("ctrl-provider")]) {
+      const current = select.value;
+      const have = Array.from(select.options).map((o) => o.value);
+      if (wanted.join("|") !== have.join("|")) {
+        select.innerHTML = "";
+        for (const provider of wanted) {
+          const option = document.createElement("option");
+          option.value = provider;
+          option.textContent = provider || "padrão";
+          select.appendChild(option);
+        }
+      }
+      select.value = wanted.includes(current) ? current : "";
+    }
+  }
+
+  async function loadStatus() {
+    try {
+      const status = await api("/api/status");
+      state.status = status;
+      state.ready = Boolean(status.ready);
+      state.busy = Boolean(status.busy);
+      state.providers = status.providers || [];
+
+      setText("provider-default", status.default_provider || "—");
+      setText("uptime", `${status.web_uptime_seconds ?? 0}s no ar`);
+      setText("conversation-id", status.conversation_id
+        ? status.conversation_id.slice(0, 8)
+        : "nova");
+      setText("set-ready", status.ready ? "pronto" : "não iniciado");
+      setText("set-provider", status.default_provider);
+      setText("set-providers", (status.providers || []).join(", "));
+      setText("set-db", status.database);
+      setText("set-memory", status.memory || "(desligada)");
+      const audio = status.audio || {};
+      setText("set-mic", audio.microphone || audio.error || "(indisponível)");
+      setText("set-speaker", audio.speaker || audio.error || "(indisponível)");
+
+      fillProviderSelects(state.providers);
+      if (!state.busy) {
+        setCore(
+          status.ready ? "operacional" : "não iniciado",
+          status.ready ? "núcleo pronto para o próximo turno" : "aguardando inicialização"
+        );
+      }
+      syncHealth();
+      clearError();
+    } catch (error) {
+      showError(`status indisponível — ${error.message}`);
+      syncHealth();
+    }
+  }
+
+  /* ── Atividade ────────────────────────────────────────────────────────── */
+  async function loadActivity() {
+    try {
+      const { events } = await api("/api/activity");
+      activityList.innerHTML = "";
+      if (!events.length) {
+        const li = document.createElement("li");
+        li.className = "placeholder";
+        li.textContent = "nenhum evento nesta sessão ainda.";
+        activityList.appendChild(li);
+        return;
+      }
+      for (const event of events) {
+        const li = document.createElement("li");
+        const time = document.createElement("time");
+        time.textContent = event.timestamp;
+        const body = document.createElement("div");
+        const kind = document.createElement("div");
+        kind.className = `kind ${event.kind}`;
+        kind.textContent = event.kind;
+        const text = document.createElement("div");
+        text.textContent = event.text;
+        body.append(kind, text);
+        li.append(time, body);
+        activityList.appendChild(li);
+      }
+    } catch (_) {
+      activityList.innerHTML = '<li class="placeholder">atividade indisponível.</li>';
+    }
+  }
+
+  /* ── Ferramentas ──────────────────────────────────────────────────────── */
+  async function loadTools() {
+    try {
+      const { tools } = await api("/api/tools");
+      state.tools = tools;
+      const container = $("tools");
+      $("tools-count").textContent = String(tools.length);
+      $("set-tools").textContent = tools.length
+        ? tools.map((tool) => tool.name).join(", ")
+        : "nenhuma";
+      if (!tools.length) {
+        container.innerHTML = '<span class="placeholder">nenhuma ferramenta registrada</span>';
+        return;
+      }
+      container.innerHTML = "";
+      for (const tool of tools) {
+        const block = document.createElement("div");
+        block.className = "tool";
+        const name = document.createElement("div");
+        name.className = "name";
+        name.textContent = `${tool.name}(${(tool.required || []).join(", ")})`;
+        const desc = document.createElement("div");
+        desc.className = "desc";
+        desc.textContent = tool.description;
+        const tags = document.createElement("div");
+        tags.className = "tags";
+        const addTag = (text, cls = "") => {
+          const tag = document.createElement("span");
+          tag.className = `tag ${cls}`.trim();
+          tag.textContent = text;
+          tags.appendChild(tag);
+        };
+        if (tool.requires_confirmation) addTag("confirmação", "warn");
+        if (tool.timeout_seconds) addTag(`${tool.timeout_seconds}s`);
+        for (const permission of tool.permissions || []) addTag(permission);
+        block.append(name, desc, tags);
+        container.appendChild(block);
+      }
+    } catch (error) {
+      $("tools").innerHTML = `<span class="placeholder">falha ao listar: ${error.message}</span>`;
+    }
+  }
+
+  /* ── Histórico ────────────────────────────────────────────────────────── */
+  function toolBadges(calls) {
+    const wrap = document.createElement("div");
+    wrap.className = "calls";
+    for (const call of calls || []) {
+      const tag = document.createElement("span");
+      tag.className = `tag ${call.ok ? "ok" : "err"}`;
+      tag.textContent = `${call.tool}${call.ok ? "" : " · falhou"}`;
+      wrap.appendChild(tag);
+    }
+    return wrap;
+  }
+
+  async function loadHistory() {
+    try {
+      const { messages: items } = await api("/api/history");
+      messages.innerHTML = "";
+      if (!items.length) {
+        messages.innerHTML = '<span class="placeholder">sem mensagens nesta conversa ainda.</span>';
+        return;
+      }
+      for (const message of items) {
+        const node = document.createElement("div");
+        node.className = `msg ${message.role === "user" ? "user" : "assistant"}`;
+        node.textContent = message.content;
+        if (message.role !== "user") {
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent = [message.provider, message.model]
+            .filter(Boolean).join(" · ");
+          if (meta.textContent) node.appendChild(meta);
+          if (message.tool_calls && message.tool_calls.length) {
+            node.appendChild(toolBadges(message.tool_calls));
+          }
+        }
+        messages.appendChild(node);
+      }
+      messages.scrollTop = messages.scrollHeight;
+    } catch (error) {
+      showError(`histórico indisponível — ${error.message}`);
+    }
+  }
+
+  /* ── Turno ────────────────────────────────────────────────────────────── */
+  async function send(event) {
+    event.preventDefault();
+    const input = $("input");
+    const message = input.value.trim();
+    if (!message || state.busy) return;
+    clearError();
+    state.busy = true;
+    syncHealth();
+    setCore("processando", "turno em execução no núcleo");
+    $("send").disabled = true;
+    input.value = "";
+
+    const pending = document.createElement("div");
+    pending.className = "msg user pending";
+    pending.textContent = message;
+    messages.appendChild(pending);
+    messages.scrollTop = messages.scrollHeight;
+
+    const started = performance.now();
+    try {
+      const provider = $("provider-select").value || null;
+      await api("/api/chat", {
+        method: "POST",
+        body: JSON.stringify({ message, provider }),
+      });
+      await Promise.all([loadHistory(), loadStatus(), loadActivity()]);
+      setCore("operacional", `turno concluído em ${((performance.now() - started) / 1000).toFixed(1)}s`);
+    } catch (error) {
+      showError(`falha no turno — ${error.message}`);
+      await loadHistory();
+    } finally {
+      state.busy = false;
+      $("send").disabled = false;
+      syncHealth();
+      input.focus();
+    }
+  }
+
+  async function newConversation() {
+    try {
+      await api("/api/new", { method: "POST" });
+      await Promise.all([loadHistory(), loadStatus(), loadActivity()]);
+      setCore("operacional", "nova conversa; histórico anterior preservado");
+    } catch (error) {
+      showError(`falha ao abrir conversa — ${error.message}`);
+    }
+  }
+
+  /* ── Gavetas ──────────────────────────────────────────────────────────── */
+  function setDrawer(id, open) {
+    const drawer = $(id);
+    const button = $(id === "controls" ? "open-controls" : "open-setup");
+    drawer.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+    if (open) {
+      const other = id === "controls" ? "setup" : "controls";
+      setDrawer(other, false);
+      drawer.querySelector("button, select, input, a")?.focus();
+    }
+  }
+
+  $("open-controls").addEventListener("click", () => setDrawer("controls", $("controls").hidden));
+  $("open-setup").addEventListener("click", () => setDrawer("setup", $("setup").hidden));
+  $("close-controls").addEventListener("click", () => setDrawer("controls", false));
+  $("close-setup").addEventListener("click", () => setDrawer("setup", false));
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") { setDrawer("controls", false); setDrawer("setup", false); }
+  });
+
+  $("ctrl-provider").addEventListener("change", (event) => {
+    $("provider-select").value = event.target.value;
+  });
+  $("provider-select").addEventListener("change", (event) => {
+    $("ctrl-provider").value = event.target.value;
+  });
+  $("ctrl-new").addEventListener("click", () => { setDrawer("controls", false); newConversation(); });
+  $("ctrl-refresh").addEventListener("click", () => {
+    Promise.all([loadStatus(), loadSystem(), loadTools(), loadActivity(), loadApprovals()]);
+  });
+
+  function applyMotionPreference() {
+    document.body.classList.toggle("compact", state.compact);
+    canvas.style.transition = "none";
+    if (state.motion) {
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      drawCore(canvas.clientWidth, canvas.clientHeight, 0);
+    } else {
+      kickAnimation();
+    }
+  }
+
+  $("reduce-motion").addEventListener("change", (event) => {
+    state.motion = event.target.checked;
+    applyMotionPreference();
+  });
+  $("compact").addEventListener("change", (event) => {
+    state.compact = event.target.checked;
+    applyMotionPreference();
+  });
+
+  $("copy-voice").addEventListener("click", async () => {
+    const text = $("voice-command").textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+      $("copy-voice").textContent = "Copiado";
+    } catch (_) {
+      const range = document.createRange();
+      range.selectNodeContents($("voice-command"));
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      $("copy-voice").textContent = "Selecionado";
+    }
+    setTimeout(() => { $("copy-voice").textContent = "Copiar comando"; }, 1800);
+  });
+
+  /* ── Relógio real ─────────────────────────────────────────────────────── */
+  function tickClock() {
+    const now = new Date();
+    $("clock").textContent = now.toLocaleTimeString("pt-BR", { hour12: false });
+  }
+
+  /* ── Inicialização ────────────────────────────────────────────────────── */
+  $("reduce-motion").checked = state.motion;
+  $("composer").addEventListener("submit", send);
+  $("new").addEventListener("click", newConversation);
+
+  if (typeof ResizeObserver !== "undefined") {
+    new ResizeObserver(() => resizeCanvas()).observe(canvas);
+  } else {
+    window.addEventListener("resize", resizeCanvas);
+  }
+  reducedMotionQuery.addEventListener?.("change", (event) => {
+    state.motion = event.matches;
+    $("reduce-motion").checked = state.motion;
+    applyMotionPreference();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) kickAnimation(); else if (raf) { cancelAnimationFrame(raf); raf = 0; }
+  });
+
+  resizeCanvas();
+  tickClock();
+  setInterval(tickClock, 1000);
+  loadStatus();
+  loadTools();
+  loadHistory();
+  loadApprovals();
+  loadSystem();
+  loadActivity();
+  setInterval(loadStatus, 5000);
+  setInterval(loadSystem, 4000);
+  setInterval(loadApprovals, 1000);
+  setInterval(loadActivity, 4000);
+})();
+</script>
+</body>
+</html>

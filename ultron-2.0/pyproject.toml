@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ultron-2-0-integration"
+version = "0.2.0"
+description = "ULTRON 2.0 — núcleo ULTRON (lain) + infraestrutura operacional Mark-LVI, sem modificar os originais"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  # Núcleo lain (importado via sys.path, não instalado a partir daqui)
+  "fastapi>=0.115",
+  "sqlalchemy>=2.0",
+  "aiosqlite>=0.20",
+  "pydantic>=2.0",
+  "pydantic-settings>=2.0",
+  "python-dotenv>=1.0",
+  # Provedor gemini do lain (pin decidido na auditoria: decisão nº 1)
+  "google-genai>=3.0.0,<4",
+  # Actions do Mark-LVI no subset curado
+  "psutil>=5.9",
+  "ddgs>=9,<10",
+  # HUD web (Etapa 5): uvicorn já é a base do lain; não adiciona stack nova
+  "uvicorn>=0.30",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "pytest-asyncio>=1.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["ultron_2_0*"]
+
+[tool.setuptools.package-data]
+# O HUD lê o HTML direto do pacote (sem Jinja2, sem CDN).
+"ultron_2_0.web" = ["static/*.html"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+# lain/tests usa asyncio_mode="auto"; o mesmo padrão aqui (pytest-asyncio 1.x).
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+# gateway desligado por padrão nos testes unitários de loop; os testes de
+# integração de ferramentas constroem o gateway explicitamente.
+filterwarnings = [
+  "ignore::DeprecationWarning",
+]
