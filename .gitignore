@@ -20,3 +20,20 @@ data/
 *.env
 api_keys.json
 
+# Arquivos de contexto/instrução para agentes (não publicar)
+AGENTS.md
+agents.md
+MEMORY.md
+memory.md
+CONTEXT.md
+context.md
+INTERFACE.md
+interface.md
+PROJECT_CONTEXT.md
+project_context.md
+CLAUDE.md
+claude.md
+.cursorrules
+.aider*
+.copilot-instructions.md
+
