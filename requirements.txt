@@ -30,3 +30,8 @@ uvicorn>=0.30
 # avatar e animações holográficas. Opcional: a interface funciona sem ela via
 # HUD web; necessária apenas para a aplicação desktop completa.
 PySide6>=6.5
+
+# Provedor NVIDIA NIM (Fase 2.5/7 — INTERFACE.md §3) — API compatível com
+# OpenAI em https://integrate.api.nvidia.com/v1. Necessário apenas para o
+# provedor NVIDIA NIM como provedor principal de modelo.
+openai>=1.0.0

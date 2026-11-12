@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import threading
 from pathlib import Path
 
@@ -188,7 +189,7 @@ class UltronCoreRuntime:
             self.authorization = None
 
         default_provider = self._requested_default_provider or (
-            "mock" if not self.settings.get_gemini_api_key() else "gemini"
+            "nvidia" if self._has_nvidia_api_key() else "gemini"
         )
         self.registry = ProviderRegistry(default_provider_id=default_provider)
 
@@ -196,9 +197,10 @@ class UltronCoreRuntime:
         # ferramentas e pelo MemoryInjectionProvider (contexto do turno).
         # provider_id é o mesmo do interno: o orquestrador do lain não percebe
         # a extensão.
-        mock = MockProvider()
-        self.registry.register_provider(self._wrap(mock))
-
+        #
+        # O provedor MOCK está disponível APENAS para testes/depuração explícita
+        # (via UltronCoreRuntime.register_provider com um MockProvider).
+        # Ele NÃO é registrado automaticamente e NUNCA é o provedor padrão.
         if self.settings.get_gemini_api_key():
             from app.intelligence.providers.gemini import GeminiProvider
 
@@ -210,6 +212,28 @@ class UltronCoreRuntime:
         else:
             logger.warning(
                 "GEMINI_API_KEY ausente no .env do lain — provedor gemini não registrado"
+            )
+
+        # Provedor NVIDIA NIM como padrão (se configurado).
+        # A chave vem exclusivamente de NVIDIA_API_KEY (variável de ambiente),
+        # nunca é gravada em código nem exposta em logs.
+        nvidia_api_key = self._get_nvidia_api_key()
+        if nvidia_api_key:
+            from .routing.providers.nvidia_nim import NVIDIAProvider
+
+            nvidia = NVIDIAProvider(
+                api_key=nvidia_api_key,
+                default_model=os.environ.get("NVIDIA_DEFAULT_MODEL", "nvidia/nemotron-3.5-flash"),
+            )
+            self.registry.register_provider(self._wrap(nvidia))
+            logger.info(
+                "Provedor NVIDIA NIM registrado como padrão (modelo=%s)",
+                nvidia.default_model,
+            )
+        else:
+            logger.warning(
+                "NVIDIA_API_KEY ausente — provedor NVIDIA NIM não registrado. "
+                "Defina NVIDIA_API_KEY para usar o provedor NVIDIA NIM."
             )
 
         # Wiring final: o MESMO padrão de lain/app/api/dependencies.py
@@ -358,6 +382,14 @@ class UltronCoreRuntime:
             system_instruction_override=system_instruction_override,
         )
         return await self.orchestrator.process_chat(request)
+
+    def _get_nvidia_api_key(self) -> str | None:
+        """Retorna a chave NVIDIA_API_KEY do ambiente (sem expor em logs)."""
+        return os.environ.get("NVIDIA_API_KEY")
+
+    def _has_nvidia_api_key(self) -> bool:
+        """Indica se a chave NVIDIA_API_KEY está configurada."""
+        return bool(self._get_nvidia_api_key())
 
     async def shutdown(self) -> None:
         """Encerra sessão e engine de forma ordenada."""

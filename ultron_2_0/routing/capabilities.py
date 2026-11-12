@@ -48,6 +48,12 @@ KNOWN_PROFILES: dict[str, dict] = {
         "tags": ("reasoning", "code", "vision"),
         "latency": "standard",
     },
+    "nvidia": {
+        "quality": 0.90,
+        "context_window": 128_000,
+        "tags": ("reasoning", "code", "vision", "nvidia", "nim"),
+        "latency": "standard",
+    },
 }
 
 _DEFAULT_PROFILE: dict = {
