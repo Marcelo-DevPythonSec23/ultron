@@ -75,12 +75,11 @@ class HolographicCanvas(QWidget):
         self.update()
 
     def state(self) -> str:
-        return self._state.value
+        return str(self._state)
 
     # -- animação -----------------------------------------------------------
     def _tick(self) -> None:
         self._angle = (self._angle + 2.0) % 360.0
-        # Pulso varia com o estado
         speed = self._pulse_speed()
         self._pulse = (self._pulse + speed) % (2 * math.pi)
         self.update()
@@ -117,36 +116,39 @@ class HolographicCanvas(QWidget):
 
     # -- pintura ------------------------------------------------------------
     def paintEvent(self, event) -> None:  # type: ignore[override]
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
+        try:
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.Antialiasing)
 
-        rect = self.rect()
-        center = QPointF(rect.width() / 2, rect.height() / 2)
-        size = min(rect.width(), rect.height())
+            rect = self.rect()
+            center = QPointF(rect.width() / 2, rect.height() / 2)
+            size = min(rect.width(), rect.height())
 
-        # Fundo do canvas
-        painter.fillRect(rect, QColor(self._theme.panel_solid))
+            # Fundo do canvas
+            painter.fillRect(rect, QColor(self._theme.panel_solid))
 
-        # Cor do estado
-        color = self._state_color()
+            # Cor do estado
+            color = self._state_color()
 
-        # 1. Grade de pontos (sutis, camada de fundo)
-        self._draw_grid(painter, rect)
+            # 1. Grade de pontos (sutis, camada de fundo)
+            self._draw_grid(painter, rect, size)
 
-        # 2. Anéis concêntricos rotativos
-        self._draw_rings(painter, center, size, color)
+            # 2. Anéis concêntricos rotativos
+            self._draw_rings(painter, center, size, color)
 
-        # 3. Núcleo pulsante
-        self._draw_core(painter, center, size, color)
+            # 3. Núcleo pulsante
+            self._draw_core(painter, center, size, color)
 
-        # 4. Marcas radiais
-        self._draw_radial_marks(painter, center, size, color)
+            # 4. Marcas radiais
+            self._draw_radial_marks(painter, center, size, color)
 
-        # 5. Indicador de nível de áudio (quando houver)
-        if self._audio_level > 0.05:
-            self._draw_audio_level(painter, center, size, color)
+            # 5. Indicador de nível de áudio (quando houver)
+            if self._audio_level > 0.05:
+                self._draw_audio_level(painter, center, size, color)
+        except Exception:  # noqa: BLE001 — pintura nunca deve derrubar a UI
+            pass
 
-    def _draw_grid(self, painter: QPainter, rect: QRectF) -> None:
+    def _draw_grid(self, painter: QPainter, rect: QRectF, size: float) -> None:
         """Grade de pontos em camada cacheada."""
         pen = QPen(QColor(self._theme.line))
         pen.setWidth(1)
@@ -154,40 +156,40 @@ class HolographicCanvas(QWidget):
 
         step = 20.0
         offset = self._angle * 0.1
-        for x in range(int(rect.left()), int(rect.right()), int(step)):
-            for y in range(int(rect.top()), int(rect.bottom()), int(step)):
+        left = int(rect.left())
+        right = int(rect.right())
+        top = int(rect.top())
+        bottom = int(rect.bottom())
+        for x in range(left, right, int(step)):
+            for y in range(top, bottom, int(step)):
                 dx = x - rect.center().x()
                 dy = y - rect.center().y()
                 dist = math.hypot(dx, dy)
                 if dist < size * 0.6:
                     alpha = int(40 + 20 * math.sin(dist * 0.1 + offset))
-                    pen.setColor(QColor(self._theme.line))
+                    color = QColor(self._theme.line)
+                    color.setAlpha(max(0, min(255, alpha)))
+                    pen.setColor(color)
                     pen.setWidth(1)
                     painter.setPen(pen)
                     painter.drawPoint(x, y)
 
     def _draw_rings(self, painter: QPainter, center: QPointF, size: float, color: QColor) -> None:
-        """Anéis concêntricos com dash e rotação."""
+        """Anéis concêntricos rotativos."""
         for i in range(3):
             radius = size * (0.35 + 0.15 * i)
             pen = QPen(color)
             pen.setWidth(2)
             pen.setStyle(Qt.DashLine)
             pen.setDashPattern([8, 6, 2, 6])
-            painter.setPen(pen)
-
             alpha = int(120 - 40 * i)
             color_alpha = QColor(color)
-            color_alpha.setAlpha(alpha)
+            color_alpha.setAlpha(max(0, min(255, alpha)))
             pen.setColor(color_alpha)
             painter.setPen(pen)
 
             start_angle = int(self._angle * 16 * (1 + i * 0.5))
             span_angle = int(120 * 16)
-            painter.drawEllipse(
-                QPointF(center.x(), center.y()), radius, radius
-            )
-            # Qt desenha elipse completa; para simular arco, usamos drawArc
             painter.drawArc(
                 QRectF(
                     center.x() - radius,
@@ -255,7 +257,6 @@ class HolographicCanvas(QWidget):
         pen.setAlpha(200)
         painter.setPen(pen)
 
-        # Barra circular ao redor do núcleo
         radius = size * 0.62
         start_angle = 0
         span_angle = int(360 * self._audio_level * 16)
