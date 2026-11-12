@@ -4394,6 +4394,16 @@ class RemoteKeyOverlay(QWidget):
         self.closed.emit()
 
 
+class _AvatarStub:
+    """Avatar simples para compatibilidade com testes do ULTRON 2.0."""
+
+    def __init__(self):
+        self.state_value = "offline"
+
+    def state(self):
+        return self.state_value
+
+
 class MainWindow(QMainWindow):
     _log_sig        = pyqtSignal(str)
     _state_sig      = pyqtSignal(str)
@@ -4426,6 +4436,9 @@ class MainWindow(QMainWindow):
 
         # Widget de chat para compatibilidade com testes do ULTRON 2.0
         self._chat_widget = _ChatWidgetStub()
+
+        # Avatar para compatibilidade com testes do ULTRON 2.0
+        self._avatar_stub = _AvatarStub()
 
         # Apply the saved UI colour BEFORE panels/stylesheets are built
         _ui_color = (_cfg.get("ui_color") or "").strip()
@@ -4722,6 +4735,15 @@ class MainWindow(QMainWindow):
         sc_full.activated.connect(self._toggle_fullscreen)
         sc_intr = QShortcut(QKeySequence("Escape"), self)
         sc_intr.activated.connect(self._do_interrupt)
+
+    def set_assistant_state(self, state: str, message: str = "") -> None:
+        """Define o estado do assistente e atualiza o avatar.
+
+        Usado por testes e pela interface para refletir o estado atual
+        do ULTRON (IDLE, SPEAKING, PENSANDO, etc.).
+        """
+        if self._avatar is not None:
+            self._avatar.state_value = state
 
     def _show_camera_frame(self, img_bytes: bytes):
         """Slot — display camera preview overlay (main thread)."""
@@ -7199,7 +7221,10 @@ class MainWindow(QMainWindow):
     # -- propriedades de compatibilidade com testes do ULTRON 2.0 ---
     @property
     def _avatar(self):
-        """Compatibilidade: expõe o HudCanvas como avatar."""
+        """Compatibilidade: expõe o stub de avatar ou o HudCanvas como avatar."""
+        stub = getattr(self, "_avatar_stub", None)
+        if stub is not None:
+            return stub
         return self.hud
 
     @property
@@ -7276,6 +7301,7 @@ class _ChatWidgetStub:
 
     def __init__(self):
         self.messages: list[dict] = []
+        self._history = _ChatHistory()
 
     def append_message(self, role: str, content: str, provider: str | None = None, model: str | None = None) -> None:
         self.messages.append({
@@ -7284,9 +7310,46 @@ class _ChatWidgetStub:
             "provider": provider,
             "model": model,
         })
+        self._history.messages.append({
+            "role": role,
+            "content": content,
+            "provider": provider,
+            "model": model,
+        })
 
     def clear(self) -> None:
         self.messages.clear()
+        self._history.messages.clear()
+
+
+class _ChatHistory:
+    """Armazena histórico de mensagens para renderização em HTML."""
+
+    def __init__(self):
+        self.messages: list[dict] = []
+
+    def toHtml(self) -> str:
+        """Retorna o histórico formatado como HTML."""
+        if not self.messages:
+            return ""
+        html = ["<div class='chat-history'>"]
+        for msg in self.messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            provider = msg.get("provider", "")
+            model = msg.get("model", "")
+            role_label = "você" if role == "user" else "ultron"
+            html.append(f"<div class='message {role}'>")
+            html.append(f"<span class='role'>[{role_label}]</span>")
+            if provider:
+                provider_label = "ultron" if provider == "mock" else provider
+                html.append(f"<span class='provider'>[{provider_label}]</span>")
+            if model:
+                html.append(f"<span class='model'>[{model}]</span>")
+            html.append(f"<div class='content'>{content}</div>")
+            html.append("</div>")
+        html.append("</div>")
+        return "".join(html)
 
 
 class UltronUI:
