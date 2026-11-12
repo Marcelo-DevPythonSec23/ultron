@@ -1,7 +1,8 @@
-"""Adaptador da interface original do Mark-LVI (ui.py) para o OrchestratorBridge do ULTRON 2.0.
+"""Adaptador da interface ULTRON (ultron_ui.py) para o OrchestratorBridge.
 
-Conecta a `JarvisUI` (interface desktop original do Mark-LVI, reutilizada de
-`Mark-LVI-main/ui.py`) ao núcleo do ULTRON 2.0 sem criar um segundo cérebro:
+Conecta a `UltronUI` (interface desktop original do ULTRON, reutilizada
+sob licença do ULTRON-main/ui.py) ao `OrchestratorBridge` do ULTRON 2.0
+sem criar um segundo cérebro:
 
 - Toda mensagem de texto vai para `OrchestratorBridge.process_text()` — o
   mesmo caminho usado pela CLI e pelo HUD web.
@@ -9,7 +10,7 @@ Conecta a `JarvisUI` (interface desktop original do Mark-LVI, reutilizada de
 - Não há segundo orquestrador, nem histórico paralelo, nem mecanismo de
   decisão independente.
 
-A interface original do Mark-LVI é reutilizada com fidelidade: canvas
+A interface do ULTRON é reutilizada com fidelidade: canvas
 holográfico, avatar, painéis de sistema e tarefas, controles de voz, etc.
 """
 
@@ -17,20 +18,21 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Any, Callable
+from typing import Any
 
 from PySide6.QtWidgets import QApplication
 
 from ..orchestrator_bridge import OrchestratorBridge
-from .mark_lvi_ui import JarvisUI
+from .ultron_ui import UltronUI
 
-logger = logging.getLogger("ultron2.interface.mark_lvi_adapter")
+logger = logging.getLogger("ultron2.interface.ultron_adapter")
 
 
-class MarkLVIAdapter:
-    """Adapta a `JarvisUI` do Mark-LVI ao `OrchestratorBridge` do ULTRON 2.0.
+class UltronAdapter:
+    """Adapta a `UltronUI` (interface desktop original do ULTRON) ao
+    `OrchestratorBridge` do ULTRON 2.0.
 
-    A interface original do Mark-LVI é reutilizada com fidelidade visual
+    A interface original do ULTRON é reutilizada com fidelidade visual
     completa. Toda comunicação com o núcleo passa pelo
     `OrchestratorBridge.process_text` — nenhum segundo orquestrador é
     criado.
@@ -38,9 +40,9 @@ class MarkLVIAdapter:
 
     def __init__(self) -> None:
         self._qt_app: QApplication | None = None
-        self._ui: JarvisUI | None = None
+        self._ui: UltronUI | None = None
         self._bridge: OrchestratorBridge | None = None
-        self._logger = logging.getLogger("ultron2.interface.mark_lvi_adapter")
+        self._logger = logging.getLogger("ultron2.interface.ultron_adapter")
 
     # -- inicialização -------------------------------------------------------
     def initialize(self, bridge: OrchestratorBridge | None = None) -> bool:
@@ -60,8 +62,8 @@ class MarkLVIAdapter:
             else:
                 self._qt_app = existing
 
-            # Cria a interface original do Mark-LVI
-            self._ui = JarvisUI("face.png")
+            # Cria a interface original do ULTRON (adaptada para ULTRON)
+            self._ui = UltronUI("face.png")
 
             # Conecta ao bridge do ULTRON (ou cria um novo)
             if bridge is not None:
@@ -69,7 +71,7 @@ class MarkLVIAdapter:
             else:
                 self._bridge = OrchestratorBridge(
                     database_url="sqlite+aiosqlite:///:memory:",
-                    default_provider="mock",
+                    default_provider=None,
                     enable_tools=True,
                 )
                 self._bridge.start()
@@ -78,7 +80,7 @@ class MarkLVIAdapter:
             self._ui.on_text_command = self._on_text_command
             self._ui.on_interrupt = self._on_interrupt
 
-            logger.info("Interface desktop do Mark-LVI inicializada com sucesso")
+            logger.info("Interface desktop do ULTRON inicializada com sucesso")
             return True
 
         except Exception as exc:  # noqa: BLE001
@@ -100,7 +102,7 @@ class MarkLVIAdapter:
             self._display_response(response)
         except Exception as exc:  # noqa: BLE001
             logger.exception("Erro ao processar mensagem: %s", exc)
-            self._ui.write_log(f"ERR: {exc}")
+            self._ui.write_log(f"ERRO: {exc}")
 
     def _on_interrupt(self) -> None:
         """Chamado quando o usuário interrompe a fala."""
@@ -118,7 +120,7 @@ class MarkLVIAdapter:
         # Exibe a resposta do assistente no log do chat
         provider_tag = f" [{provider}]" if provider else ""
         model_tag = f" ({model})" if model else ""
-        self._ui.write_log(f"Jarvis{provider_tag}{model_tag}: {content}")
+        self._ui.write_log(f"Ultron{provider_tag}{model_tag}: {content}")
 
         # Atualiza o estado do avatar para ocioso após a resposta
         self._ui.set_state("IDLE")
@@ -129,23 +131,23 @@ class MarkLVIAdapter:
         if self._ui:
             self._ui.set_state(state)
             if detail:
-                self._ui.write_log(f"SYS: {detail}")
+                self._ui.write_log(f"SISTEMA: {detail}")
 
     def show_error(self, message: str) -> None:
         """Exibe um erro na interface."""
         if self._ui:
-            self._ui.write_log(f"ERR: {message}")
+            self._ui.write_log(f"ERRO: {message}")
 
     def show_tool_result(self, tool_name: str, result: str) -> None:
         """Exibe o resultado de uma ferramenta."""
         if self._ui:
-            self._ui.write_log(f"[TOOL] {tool_name}: {result}")
+            self._ui.write_log(f"[FERRAMENTA] {tool_name}: {result}")
 
     # -- ciclo de vida ------------------------------------------------------
     def run(self) -> int:
         """Entra no event loop do Qt. Bloqueia até a janela ser fechada."""
         if not self._qt_app:
-            raise RuntimeError("Interface não inicializada — chame initialize()")
+            raise RuntimeError("Interface não iniciada — chame initialize()")
         if self._ui:
             self._ui.root.mainloop()
         return 0
@@ -162,7 +164,7 @@ class MarkLVIAdapter:
 
     # -- acessadores --------------------------------------------------------
     @property
-    def ui(self) -> JarvisUI | None:
+    def ui(self) -> UltronUI | None:
         return self._ui
 
     @property
@@ -201,4 +203,4 @@ class MarkLVIAdapter:
         return []
 
 
-__all__ = ["MarkLVIAdapter"]
+__all__ = ["UltronAdapter"]

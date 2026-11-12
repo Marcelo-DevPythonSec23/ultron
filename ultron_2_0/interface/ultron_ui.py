@@ -82,8 +82,8 @@ def _read_full_config() -> dict:
 
 # Single source of truth for the release name — the window title, the header
 # badge and the readme must never disagree again.
-APP_VERSION  = "MARK LVI"
-APP_PROTOCOL = APP_VERSION.split()[-1]
+APP_VERSION  = "ULTRON 2.0"
+APP_PROTOCOL = APP_VERSION.split()[0]
 
 _DEFAULT_W, _DEFAULT_H = 980, 700
 _MIN_W,     _MIN_H     = 820, 580
@@ -403,7 +403,7 @@ class _SysMetrics:
 _metrics = _SysMetrics()
 
 class HudCanvas(QWidget):
-    def __init__(self, face_path: str, assistant_name: str = "J.A.R.V.I.S", parent=None):
+    def __init__(self, face_path: str, assistant_name: str = "ULTRON", parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
         self.setMinimumSize(300, 300)
@@ -411,7 +411,7 @@ class HudCanvas(QWidget):
 
         self.muted    = False
         self.speaking = False
-        self.state    = "INITIALISING"
+        self.state    = "INICIALIZANDO"
         self._assistant_name = assistant_name
 
         # The holographic head that fills the HUD. If it could not be imported
@@ -655,7 +655,7 @@ class HudCanvas(QWidget):
         # either way because the animation state keeps stepping at 60 Hz.
         self._paint_tick = (self._paint_tick + 1) % 6
         active = (self.speaking or amp > 0.02
-                  or self.state in ("THINKING", "PROCESSING"))
+                  or self.state in ("PENSANDO", "PROCESSANDO"))
         if _blinked or (self._paint_tick % 2 == 0 if active
                         else self._paint_tick % 3 == 0):
             # Nothing is on screen when the window is hidden or minimised, so
@@ -688,9 +688,9 @@ class HudCanvas(QWidget):
             return qcol(C.MUTED_C), qcol(C.MUTED_C)
         if self.speaking:
             return qcol(C.PRI), qcol(C.ACC)
-        if self.state in ("THINKING", "PROCESSING"):
+        if self.state in ("PENSANDO", "PROCESSANDO"):
             return qcol(C.PRI), qcol(C.ACC2)
-        if self.state == "LISTENING":
+        if self.state == "OUVINDO":
             return qcol(C.PRI), qcol(C.GREEN)
         return qcol(C.PRI), qcol(C.PRI_DIM)
 
@@ -786,7 +786,7 @@ class HudCanvas(QWidget):
         # 6. Sweeping arcs. Long spans, not dashes — the original's grandeur
         #    came from a few big strokes. Speed is the state: idle drifts,
         #    thinking hurries, speaking runs.
-        rate = 1.0 + (1.9 if self.state in ("THINKING", "PROCESSING") else 0.0) \
+        rate = 1.0 + (1.9 if self.state in ("PENSANDO", "PROCESSANDO") else 0.0) \
                    + (1.2 if self.speaking else 0.0)
         for k, (rr, span, count, dirn, col, a, wid) in enumerate((
                 (0.955, 118, 2, +1, acc,  0.75, 2.0),
@@ -824,7 +824,7 @@ class HudCanvas(QWidget):
         p.drawEllipse(QRectF(cx - inner, cy - inner, inner * 2, inner * 2))
 
         # 9. The name, sized from the string rather than from the radius alone:
-        #    "J.A.R.V.I.S" and a name someone renamed to "MAX" are very
+        #    "ULTRON" and a name someone renamed to "MAX" are very
         #    different widths, and a fixed fraction of r spills one of them past
         #    the ring it is supposed to sit inside.
         name = self._assistant_name or ""
@@ -875,9 +875,9 @@ class HudCanvas(QWidget):
                 _main = qcol(C.PRI)
                 if self.speaking:
                     _acc = qcol(C.ACC)
-                elif self.state in ("THINKING", "PROCESSING"):
+                elif self.state in ("PENSANDO", "PROCESSANDO"):
                     _acc = qcol(C.ACC2)
-                elif self.state == "LISTENING":
+                elif self.state == "OUVINDO":
                     _acc = qcol(C.GREEN)
                 else:
                     _acc = qcol(C.PRI)
@@ -898,16 +898,16 @@ class HudCanvas(QWidget):
         if self.muted:
             txt, col = "⊘  MUTED",     qcol(C.MUTED_C)
         elif self.speaking:
-            txt, col = "●  SPEAKING",  qcol(C.ACC)
-        elif self.state == "THINKING":
+            txt, col = "●  FALANDO",  qcol(C.ACC)
+        elif self.state == "PENSANDO":
             sym = "◈" if self._blink else "◇"
-            txt, col = f"{sym}  THINKING",   qcol(C.ACC2)
-        elif self.state == "PROCESSING":
+            txt, col = f"{sym}  PENSANDO",   qcol(C.ACC2)
+        elif self.state == "PROCESSANDO":
             sym = "▷" if self._blink else "▶"
-            txt, col = f"{sym}  PROCESSING", qcol(C.ACC2)
-        elif self.state == "LISTENING":
+            txt, col = f"{sym}  PROCESSANDO", qcol(C.ACC)
+        elif self.state == "OUVINDO":
             sym = "●" if self._blink else "○"
-            txt, col = f"{sym}  LISTENING",  qcol(C.GREEN)
+            txt, col = f"{sym}  OUVINDO",  qcol(C.GREEN)
         else:
             sym = "●" if self._blink else "○"
             txt, col = f"{sym}  {self.state}", qcol(C.PRI)
@@ -1474,7 +1474,7 @@ class SetupOverlay(QWidget):
             return w
 
         layout.addWidget(_lbl("◈  INITIALISATION REQUIRED", 13, True))
-        layout.addWidget(_lbl("Configure J.A.R.V.I.S. before first boot.", 9, color=C.PRI_DIM))
+        layout.addWidget(_lbl("Configure ULTRON. before first boot.", 9, color=C.PRI_DIM))
         layout.addSpacing(6)
 
         sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine)
@@ -2730,8 +2730,8 @@ class ProvidersOverlay(_HudOverlay):
     # somebody configuring it would use, not the words the code uses.
     _SLOTS = (
         ("stt", "①", "HEARING",  "turns what you say into words"),
-        ("llm", "②", "THINKING", "understands, decides, uses your tools"),
-        ("tts", "③", "SPEAKING", "reads the answer out loud"),
+        ("llm", "②", "PENSANDO", "understands, decides, uses your tools"),
+        ("tts", "③", "FALANDO", "fala a resposta em voz alta"),
     )
 
     def __init__(self, parent=None):
@@ -2853,7 +2853,7 @@ class ProvidersOverlay(_HudOverlay):
         self._footer.setStyleSheet(f"color: {C.TEXT_DIM}; background: transparent;")
 
         # Every value below is a service id — "openai_compat@minimax" — so the
-        # fallback, the coding model and ② THINKING can each be a different
+        # fallback, the coding model and ② PENSANDO can each be a different
         # service with settings of its own.
         self._pipe = {slot: self._normalise(sid, slot)
                       for slot, sid in dict(get_pipeline()).items()}
@@ -3489,13 +3489,13 @@ class ProvidersOverlay(_HudOverlay):
         self._first_combo.setCurrentIndex(1 if self._sidecar_first else 0)
         lay.addWidget(self._first_combo)
 
-        # In pipeline mode the model chosen for ② THINKING may answer these too,
+        # In pipeline mode the model chosen for ② PENSANDO may answer these too,
         # and then there is nothing more to fill in. In Gemini mode there IS no
         # ② section, so a service picked here gets its own form, right here.
         if sid:
             if self._mode == "pipeline" and sid == self._pipe.get("llm"):
                 lay.addWidget(self._label(
-                    "Uses the model you chose for ② THINKING.", 7, C.TEXT_DIM))
+                    "Uses the model you chose for ② PENSANDO.", 7, C.TEXT_DIM))
             else:
                 self._fields_into(lay, "llm", sid)
         else:
@@ -3551,7 +3551,7 @@ class ProvidersOverlay(_HudOverlay):
                 "Uses the settings under BACKGROUND REQUESTS.", 7, C.TEXT_DIM))
         elif self._mode == "pipeline" and sid == self._pipe.get("llm"):
             lay.addWidget(self._label(
-                "Uses the model you chose for ② THINKING.", 7, C.TEXT_DIM))
+                "Uses the model you chose for ② PENSANDO.", 7, C.TEXT_DIM))
         else:
             self._fields_into(lay, "llm", sid)
         return w
@@ -3581,9 +3581,9 @@ class ProvidersOverlay(_HudOverlay):
             return
         missing = [name for slot, _n, name, _w in self._SLOTS
                    if not self._pipe.get(slot)]
-        if "THINKING" in missing:
+        if "PENSANDO" in missing:
             self._footer.setText(
-                "⚠  ② THINKING is not set — without it the assistant falls back "
+                "⚠  ② PENSANDO is not set — without it the assistant falls back "
                 "to Gemini Live and says so in the log.")
         elif missing:
             words = " and ".join(f"{m.lower()}" for m in missing)
@@ -4306,7 +4306,7 @@ class RemoteKeyOverlay(QWidget):
             from io import BytesIO
             qr = _qrmod.QRCode(
                 box_size=5, border=2,
-                error_correction=_qrmod.constants.ERROR_CORRECT_M,
+                error_correction=_qrmod.constants.ERRO_CORRECT_M,
             )
             qr.add_data(url)
             qr.make(fit=True)
@@ -5065,7 +5065,7 @@ class MainWindow(QMainWindow):
             sc.TargetPath       = target
             sc.Arguments        = f'"{args}"'
             sc.WorkingDirectory = work_dir
-            sc.Description      = "J.A.R.V.I.S AI Assistant"
+            sc.Description      = "ULTRON AI Assistant"
             sc.IconLocation     = icon_loc
             sc.save()
             return
@@ -5080,7 +5080,7 @@ class MainWindow(QMainWindow):
             f'sc.TargetPath = "{target}"',
             f'sc.Arguments = Chr(34) & "{args}" & Chr(34)',
             f'sc.WorkingDirectory = "{work_dir}"',
-            'sc.Description = "J.A.R.V.I.S AI Assistant"',
+            'sc.Description = "ULTRON AI Assistant"',
             f'sc.IconLocation = "{icon_loc}"',
             'sc.Save',
         ])
@@ -5203,14 +5203,14 @@ class MainWindow(QMainWindow):
             if _os == "Windows":
                 pythonw  = python.parent / "pythonw.exe"
                 target   = str(pythonw if pythonw.exists() else python)
-                lnk      = str(desktop / "J.A.R.V.I.S.lnk")
+                lnk      = str(desktop / "ULTRON.lnk")
                 icon_loc = str(ico_path) if ico_path.exists() else f"{target},0"
                 self._create_lnk_windows(lnk, target, str(script),
                                          str(script.parent), icon_loc)
 
             # ── macOS — proper .app bundle (no Terminal window) ───────────────
             elif _os == "Darwin":
-                app     = desktop / "J.A.R.V.I.S.app"
+                app     = desktop / "ULTRON.app"
                 mac_dir = app / "Contents" / "MacOS"
                 res_dir = app / "Contents" / "Resources"
                 mac_dir.mkdir(parents=True, exist_ok=True)
@@ -5236,7 +5236,7 @@ class MainWindow(QMainWindow):
                     '  <key>CFBundleExecutable</key><string>ULTRON</string>\n'
                     '  <key>CFBundleIdentifier</key>'
                     '<string>com.ultron.assistant</string>\n'
-                    '  <key>CFBundleName</key><string>J.A.R.V.I.S</string>\n'
+                    '  <key>CFBundleName</key><string>ULTRON</string>\n'
                     '  <key>CFBundlePackageType</key><string>APPL</string>\n'
                     '  <key>CFBundleVersion</key><string>1.0</string>\n'
                     '</dict></plist>\n'
@@ -5274,10 +5274,10 @@ class MainWindow(QMainWindow):
                         png_path = ico_path  # fallback to .ico
 
                 icon_line = f"Icon={png_path}\n" if png_path.exists() else ""
-                desk = desktop / "J.A.R.V.I.S.desktop"
+                desk = desktop / "ULTRON.desktop"
                 desk.write_text(
                     "[Desktop Entry]\n"
-                    "Name=J.A.R.V.I.S\n"
+                    "Name=ULTRON\n"
                     f"Exec={python} {script}\n"
                     f"Path={script.parent}\n"
                     "Type=Application\n"
@@ -5449,7 +5449,7 @@ class MainWindow(QMainWindow):
         self._title_lbl.setStyleSheet(f"color: {C.PRI}; background: transparent;")
         mid.addWidget(self._title_lbl)
         _sub_text = ("A Friendly Assistant"
-                     if _disp in ("ULTRON", "J.A.R.V.I.S")
+                     if _disp in ("ULTRON", "ULTRON")
                      else "Personal AI Assistant")
         self._sub_lbl = QLabel(_sub_text)
         self._sub_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -6913,7 +6913,7 @@ class MainWindow(QMainWindow):
         display = self._assistant_name.upper()
         self.setWindowTitle(f"{display} — {APP_VERSION}")
         self._title_lbl.setText(display)
-        if display in ("ULTRON", "J.A.R.V.I.S"):
+        if display in ("ULTRON", "ULTRON"):
             self._sub_lbl.setText("Just A Rather Very Intelligent System")
         else:
             self._sub_lbl.setText("Personal AI Assistant")
@@ -7127,7 +7127,7 @@ class MainWindow(QMainWindow):
             self._apply_state("MUTED")
             self._log.append_log("SYS: Microphone muted." + (f" {note}" if note else ""))
         else:
-            self._apply_state("LISTENING")
+            self._apply_state("OUVINDO")
             self._log.append_log("SYS: Microphone active." + (f" {note}" if note else ""))
 
     def _style_mute_btn(self):
@@ -7159,7 +7159,7 @@ class MainWindow(QMainWindow):
 
     def _apply_state(self, state: str):
         self.hud.state    = state
-        self.hud.speaking = (state == "SPEAKING")
+        self.hud.speaking = (state == "FALANDO")
 
     def _check_config(self) -> bool:
         if not API_FILE.exists(): return False
@@ -7192,7 +7192,7 @@ class MainWindow(QMainWindow):
         if self._overlay:
             self._overlay.hide()
             self._overlay = None
-        self._apply_state("LISTENING")
+        self._apply_state("OUVINDO")
         self._assistant_name = _read_full_config().get("assistant_name", "ULTRON") or "ULTRON"
         self._log.append_log(f"SYS: Initialised. OS={os_name.upper()}. {self._assistant_name} online.")
 
@@ -7540,12 +7540,12 @@ class UltronUI:
         return self._win._assistant_name
 
     def start_speaking(self):
-        self.set_state("SPEAKING")
+        self.set_state("FALANDO")
 
     def stop_speaking(self):
         if not self.muted:
-            self.set_state("LISTENING")
+            self.set_state("OUVINDO")
 
 
 # Alias para compatibilidade com código existente
-JarvisUI = UltronUI
+UltronUI = UltronUI

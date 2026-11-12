@@ -1,17 +1,17 @@
-"""Application Controller da interface desktop (Fase 2.5 — INTERFACE.md).
+"""Application Controller da interface desktop ULTRON 2.0.
 
-Usa a interface original do Mark-LVI (`mark_lvi_ui.py`, adaptada de
-`Mark-LVI-main/ui.py`) conectada ao `OrchestratorBridge` do ULTRON 2.0.
+Usa a interface original do ULTRON (adaptada para ULTRON) conectada ao
+`OrchestratorBridge` do ULTRON 2.0.
 Não cria um segundo cérebro: consome os serviços existentes através do
-`BridgeAdapter`.
+`UltronAdapter`.
 """
 
 from __future__ import annotations
 
 import logging
 
-from .mark_lvi_adapter import MarkLVIAdapter
-from .mark_lvi_ui import JarvisUI
+from .ultron_adapter import UltronAdapter
+from .ultron_ui import UltronUI
 from .events.event_system import EventSystem, EventType
 
 logger = logging.getLogger("ultron2.interface.application")
@@ -20,12 +20,12 @@ logger = logging.getLogger("ultron2.interface.application")
 class Application:
     """Controlador da aplicação desktop ULTRON 2.0.
 
-    Envolve o `MarkLVIAdapter` que conecta a `JarvisUI` (interface original
-    do Mark-LVI) ao `OrchestratorBridge` do ULTRON 2.0.
+    Envolve o `UltronAdapter` que conecta a `UltronUI` (interface original
+    do ULTRON, adaptada para ULTRON) ao `OrchestratorBridge` do ULTRON 2.0.
     """
 
     def __init__(self) -> None:
-        self._adapter = MarkLVIAdapter()
+        self._adapter = UltronAdapter()
         self._logger = logging.getLogger("ultron2.interface.application.Application")
         self._event_system = EventSystem()
 
@@ -52,11 +52,11 @@ class Application:
 
     # -- acessadores --------------------------------------------------------
     @property
-    def adapter(self) -> MarkLVIAdapter:
+    def adapter(self) -> UltronAdapter:
         return self._adapter
 
     @property
-    def ui(self):
+    def ui(self) -> UltronUI | None:
         return self._adapter.ui
 
     @property
@@ -65,7 +65,7 @@ class Application:
 
     @property
     def main_window(self):
-        """Retorna a janela principal (MainWindow da interface Mark LVI)."""
+        """Retorna a janela principal (MainWindow da interface)."""
         if self._adapter and self._adapter.ui:
             return self._adapter.ui._win
         return None

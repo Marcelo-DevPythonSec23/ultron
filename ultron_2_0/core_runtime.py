@@ -240,15 +240,14 @@ class UltronCoreRuntime:
                 "Defina NVIDIA_API_KEY para usar o provedor NVIDIA NIM."
             )
 
-        # Registra mock APENAS se nenhum provedor real estiver disponível,
-        # como último recurso para desenvolvimento/testes.
-        if self._requested_default_provider == "mock" or (
-            not self._has_nvidia_api_key() and not self.settings.get_gemini_api_key()
-        ):
+        # O provedor MOCK só é registrado se explicitamente solicitado.
+# NÃO é usado como fallback automático — conforme AGENTS.md §3.3,
+# o modelo não deve ser usado silenciosamente como fallback.
+        if self._requested_default_provider == "mock":
             mock = MockProvider()
             self.registry.register_provider(self._wrap(mock))
             logger.warning(
-                "Nenhum provedor real configurado — usando mock como fallback. "
+                "Modo de desenvolvimento: usando provedor mock. "
                 "Defina NVIDIA_API_KEY ou GEMINI_API_KEY para provedores reais."
             )
 
