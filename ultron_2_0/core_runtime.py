@@ -43,6 +43,7 @@ import threading
 from pathlib import Path
 
 from . import bootstrap
+from .personality_config import PersonalityConfig
 
 logger = logging.getLogger("ultron2.core")
 
@@ -81,6 +82,7 @@ class UltronCoreRuntime:
         self._confirmation_handler = confirmation_handler
         # Fase 3: configuração do Model Router (env ULTRON_ROUTER_* por padrão).
         self._router_config = router_config
+        self._personality_config = PersonalityConfig()
 
         # Event loop dedicado em thread de background (padrão Mark-LVI).
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -271,7 +273,7 @@ class UltronCoreRuntime:
                 max_tokens=self.settings.MAX_CONTEXT_TOKENS,
                 max_messages=self.settings.MAX_HISTORY_MESSAGES,
             ),
-            prompt_engine=PromptEngine(),
+            prompt_engine=PromptEngine(personality=self._personality_config),
             provider_registry=self.router,
         )
         logger.info(
