@@ -17,7 +17,12 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from app.intelligence.providers.base import LLMException, LLMProvider
+from app.intelligence.providers.base import (
+    LLMException,
+    LLMProvider,
+    ProviderResponseError,
+    ProviderNotFoundError,
+)
 from app.models.message import (
     ChatMessage,
     LLMRequest,
@@ -99,7 +104,7 @@ class NVIDIAProvider(LLMProvider):
                     for m in (request.messages or [])
                 ],
                 temperature=request.temperature,
-                max_tokens=request.max_tokens,
+                max_tokens=request.max_output_tokens if request.max_output_tokens is not None else None,
                 stream=False,
             )
             assert isinstance(completion, ChatCompletion)
@@ -138,7 +143,7 @@ class NVIDIAProvider(LLMProvider):
                     for m in (request.messages or [])
                 ],
                 temperature=request.temperature,
-                max_tokens=request.max_tokens,
+                max_tokens=request.max_output_tokens if request.max_output_tokens is not None else None,
                 stream=True,
             )
 
