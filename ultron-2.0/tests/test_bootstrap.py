@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from ultron_2_0 import bootstrap
 
 
@@ -44,3 +46,35 @@ def test_settings_carrega_env_do_lain_por_caminho_absoluto():
     impressa nem copiada — só verificamos que Settings carrega."""
     settings = bootstrap.build_settings(bootstrap.resolve_project_root() / "lain")
     assert settings.APP_NAME == "ULTRON"
+
+
+def test_load_env_carrega_variaveis_do_arquivo(tmp_path, monkeypatch):
+    env_file = tmp_path / ".env"
+    env_file.write_text("ULTRON_TEST_LOAD_ENV=carregado\n", encoding="utf-8")
+    monkeypatch.delenv("ULTRON_TEST_LOAD_ENV", raising=False)
+
+    loaded = bootstrap.load_env(env_file)
+
+    assert loaded == env_file.resolve()
+    assert os.environ["ULTRON_TEST_LOAD_ENV"] == "carregado"
+
+
+def test_load_env_nao_sobrescreve_ambiente_existente(tmp_path, monkeypatch):
+    env_file = tmp_path / ".env"
+    env_file.write_text("ULTRON_TEST_LOAD_ENV=arquivo\n", encoding="utf-8")
+    monkeypatch.setenv("ULTRON_TEST_LOAD_ENV", "shell")
+
+    bootstrap.load_env(env_file)
+
+    # Precedência: variáveis exportadas no shell vencem o .env.
+    assert os.environ["ULTRON_TEST_LOAD_ENV"] == "shell"
+
+
+def test_load_env_arquivo_ausente_nao_falha(tmp_path):
+    assert bootstrap.load_env(tmp_path / "nao_existe.env") is None
+
+
+def test_load_env_padrao_usa_ultron2_root():
+    """O caminho padrão é o .env da raiz do produto, não o do CWD."""
+    assert bootstrap.load_env(bootstrap.ULTRON2_ROOT / "nao_existe.env") is None
+    assert bootstrap.ULTRON2_ROOT.name == "ultron-2.0"

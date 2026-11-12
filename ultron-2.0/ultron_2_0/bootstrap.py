@@ -23,6 +23,7 @@ para importar (não copiar) seus módulos.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -37,7 +38,7 @@ def resolve_project_root(project_root: str | Path | None = None) -> Path:
     if project_root is not None:
         root = Path(project_root).resolve()
     else:
-        env_root = sys.modules.get("os").environ.get("ULTRON2_PROJECT_ROOT")
+        env_root = os.environ.get("ULTRON2_PROJECT_ROOT")
         root = Path(env_root).resolve() if env_root else DEFAULT_PROJECT_ROOT
     return root
 
@@ -73,6 +74,28 @@ def ensure_sys_paths(project_root: str | Path | None = None) -> tuple[Path, Path
         if p not in sys.path:
             sys.path.insert(0, p)
     return root, lain, marklvi
+
+
+def load_env(env_file: str | Path | None = None) -> Path | None:
+    """Carrega o `.env` do ULTRON 2.0 no ambiente do processo.
+
+    O arquivo fica em `ultron-2.0/.env` (gitignored) e é opcional: se não
+    existir, nada acontece. Variáveis já exportadas no shell têm precedência
+    (`override=False`) e a função é idempotente — pode ser chamada por
+    qualquer entrypoint sem duplicar efeitos.
+
+    Retorna o caminho carregado ou `None` quando não há `.env` (ou quando
+    `python-dotenv` não está instalado).
+    """
+    path = Path(env_file).resolve() if env_file else ULTRON2_ROOT / ".env"
+    if not path.is_file():
+        return None
+    try:
+        from dotenv import load_dotenv
+    except ImportError:  # dependência opcional em runtime mínimo
+        return None
+    load_dotenv(dotenv_path=path, override=False)
+    return path
 
 
 def default_database_url(ultron2_root: Path | None = None) -> str:

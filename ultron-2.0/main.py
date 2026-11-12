@@ -107,6 +107,12 @@ def _interactive_menu() -> int:
 
 
 def main() -> int:
+    # Carrega ultron-2.0/.env (opcional, CWD-independente) antes de qualquer
+    # import que leia os.environ (NVIDIA_API_KEY, GEMINI_API_KEY, router...).
+    from ultron_2_0 import bootstrap
+
+    bootstrap.load_env()
+
     parser = argparse.ArgumentParser(
         prog="main.py",
         description="ULTRON 2.0 — ponto de entrada único do software completo.",
