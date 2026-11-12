@@ -1,663 +1,214 @@
-# ULTRON 2.1 — DIRETRIZES MESTRAS DE ENGENHARIA
-
-**Projeto:** ULTRON  
-**Versão:** 2.1  
-**Etapa de desenvolvimento:** Pós-integração / Arquitetura Multiagente  
-**Linguagem principal:** Python 3.12  
-**Ambiente:** Linux  
-**Diretório principal:** `ultron-2.0/`
+# ULTRON 2.0 — INVESTIGAÇÃO E CORREÇÃO DEFINITIVA DO BACKEND DA INTERFACE
 
----
-
-# 1. OBJETIVO DO PROJETO
+## CONTEXTO
 
-Dar continuidade ao desenvolvimento do ULTRON após a conclusão bem-sucedida do plano original de integração, composto pelas Etapas 0–10.
+Esta é a terceira tentativa de corrigir a comunicação entre a interface desktop e o backend.
 
-O objetivo é evoluir o ULTRON de um assistente de IA com memória persistente, ferramentas, voz e HUD para um sistema inteligente modular, extensível e multiagente.
+A interface visual já está implementada e funcionando. NÃO reconstrua a interface, NÃO redesenhe os componentes e NÃO comece outra implementação.
 
-O sistema deverá adquirir progressivamente capacidade para:
+O problema atual está na comunicação entre a interface, o orquestrador e o provider de IA.
 
-- Coordenar múltiplos provedores de IA.
-- Delegar tarefas a agentes externos de programação.
-- Gerenciar agentes especializados.
-- Planejar e executar fluxos de trabalho complexos.
-- Avaliar e validar resultados produzidos por agentes.
-- Manter memória contextual persistente.
-- Interagir com sistemas externos por interfaces controladas.
-- Recuperar-se de falhas.
-- Operar autonomamente dentro de permissões explicitamente definidas.
+A captura de tela comprova que o sistema continua apresentando:
 
-O ULTRON deve continuar sendo a autoridade central de conversação, memória e orquestração.
+`Jarvis [mock] (mock-model-v1): [Resposta Simulada ULTRON]`
 
-Não reconstruir infraestruturas já implementadas sem justificativa técnica comprovada.
+Também existe o registro:
 
-# 2. ARQUITETURA ATUAL
+`Dashboard not running - remote unavailable`
 
-Os componentes abaixo já foram implementados e devem ser tratados como infraestrutura existente.
+Quero uma investigação técnica da execução REAL, não apenas uma revisão dos arquivos.
 
-## 2.1 Núcleo
+## FASE 1 — REPRODUZIR E RASTREAR
 
-- Orchestrator original do Lain reutilizado sem modificações.
-- OrchestratorBridge.
-- CoreRuntime.
-- Histórico conversacional único.
-- Banco SQLite isolado em `ultron-2.0/data/ultron2.db`.
-- ProviderRegistry.
-- ToolCallingProvider.
-- ToolGateway.
+Execute a aplicação desktop e rastreie uma mensagem desde o momento em que o usuário pressiona Enter ou clica no botão de envio.
 
-## 2.2 Engenharia de Memória
+Identifique:
 
-- MemoryEngine.
-- MemoryInjectionProvider.
-- Integração com FactMemory.
-- Memória persistente.
-- Cinco tipos de memória:
-  - working
-  - episodic
-  - semantic
-  - procedural
-  - user
-- Isolamento por escopos.
-- Níveis de confiança.
-- Etiquetas (tags).
-- Retenção e TTL.
-- Deduplicação.
-- Histórico de versões.
-- Exclusão autorizada.
-- Consolidação somente leitura.
-- Recuperação lexical.
-- Injeção contextual com orçamento de caracteres.
-- Auditoria de memória.
+1. Qual função recebe a mensagem.
+2. Qual callback da interface é executado.
+3. Qual adaptador recebe a mensagem.
+4. Se `OrchestratorBridge.process_text` é chamado.
+5. Qual instância do Orchestrator está sendo utilizada.
+6. Qual ModelRouter está sendo utilizado.
+7. Qual provider é selecionado.
+8. Qual modelo efetivamente recebe a requisição.
+9. Qual resposta retorna ao backend.
+10. Qual componente apresenta essa resposta na interface.
 
-Armazenamento canônico:
+Registre os arquivos, funções e classes envolvidos em cada etapa.
 
-- `data/memory.json`
-- `data/memory_records.json`
-- `data/memory_history.json`
+Não presuma que a arquitetura documentada corresponde à execução atual. Verifique o código realmente executado.
 
-## 2.3 Interfaces
+## FASE 2 — LOCALIZAR A ORIGEM DO MOCK
 
-- CLI.
-- HUD Web.
-- VoicePipeline.
-- STT Gemini Live.
-- TTS Gemini.
-- SystemSpeaker como alternativa.
+Procure especificamente:
 
-Todas as interfaces devem continuar utilizando o mesmo caminho de execução `process_text`.
+- `mock-model-v1`
+- `MockProvider`
+- `MockLLMProvider`
+- `mock`
+- `Resposta Simulada ULTRON`
+- `Jarvis [mock]`
+- `provider_id`
+- `default_provider`
+- `ModelRouter`
+- `ProviderRegistry`
 
-## 2.4 Ferramentas
+Descubra exatamente quem está selecionando o mock.
 
-Ferramentas atualmente integradas:
+Investigue:
 
-- system_status
-- open_app
-- web_search
-- reminder
-- remember
-- recall
-- forget
+- Configuração padrão.
+- Variáveis de ambiente.
+- Bootstrap.
+- Registro de providers.
+- Injeção de dependências.
+- Inicialização da interface.
+- Fallback automático.
+- Adaptadores.
+- Configuração do ambiente de desenvolvimento.
 
-Todas as ferramentas devem passar pelo ToolGateway.
+Não remova o mock dos testes. Ele pode continuar existindo para testes e demonstrações explícitas.
 
-## 2.5 Linha de base de validação
+O que precisa desaparecer é sua utilização involuntária na execução normal.
 
-Resultados registrados na conclusão da integração:
+## FASE 3 — INTEGRAR NVIDIA DE VERDADE
 
-- ULTRON 2.0: 109 testes aprovados.
-- Regressão do Lain: 64 testes aprovados.
-- Dois commits de integração.
-- Repositórios originais preservados.
+Verifique se existe implementação real do provider NVIDIA.
 
-Esses resultados são históricos. Executar novamente os testes antes de afirmar que o estado atual continua aprovado.
+Se não existir, implemente-a seguindo o contrato `LLMProvider` utilizado pelo núcleo Lain.
 
-# 3. INVARIANTES DE ENGENHARIA
+Configuração:
 
-Estas regras são obrigatórias durante todo o desenvolvimento.
+- Provider: NVIDIA
+- Base URL: `https://integrate.api.nvidia.com/v1`
+- Credencial: `NVIDIA_API_KEY`
+- Modelo: identificador NVIDIA válido e configurável.
 
-## 3.1 Proteção dos repositórios
+Não invente modelos.
 
-Nunca modificar:
+Utilize a compatibilidade OpenAI quando suportada pelo endpoint e pelo modelo selecionado.
 
-- `lain/`
-- `Mark-LVI-main/`
+Não altere o núcleo original `lain/`.
 
-Esses diretórios são projetos externos e devem permanecer intactos.
+Implemente a integração exclusivamente na camada do ULTRON 2.0, respeitando o contrato existente.
 
-Nunca sobrescrever:
+Verifique se o registro de providers do núcleo permite registrar o provider NVIDIA sem alterar arquivos originais.
 
-- `lain/ultron.db`
-- `Mark-LVI-main/memory/long_term.json`
-- Configurações originais.
-- Credenciais originais.
+Se não permitir, apresente a limitação técnica e implemente um adaptador compatível dentro do ULTRON 2.0.
 
-Nunca criar ou modificar:
+## FASE 4 — CORRIGIR A INICIALIZAÇÃO
 
-`Mark-LVI-main/config/api_keys.json`
+O provider NVIDIA deve ser selecionado como padrão na execução normal.
 
-Nunca imprimir, expor, registrar em logs ou duplicar `GEMINI_API_KEY`.
+O comportamento esperado é:
 
-## 3.2 Autoridade central
+`Desktop UI → Bridge → Orchestrator → NVIDIA Provider → API NVIDIA → Response → Desktop UI`
 
-O ULTRON deve continuar sendo a única autoridade para:
+Se a credencial estiver ausente, informe o problema.
 
-- Orquestração conversacional.
-- Histórico de conversação.
-- Memória persistente.
-- Coordenação central de agentes.
+Se a API retornar erro, informe o problema.
 
-Agentes externos não devem criar históricos conversacionais concorrentes ou memórias independentes que disputem autoridade com o núcleo.
+Se houver HTTP 429, respeite o limite e o Retry-After.
 
-## 3.3 Segurança
+NUNCA apresente uma resposta simulada como resposta real.
 
-- O modelo propõe ações; código determinístico autoriza sua execução.
-- Todas as ferramentas passam por contratos validados.
-- Não permitir execução irrestrita de shell.
-- Não permitir execução irrestrita de código gerado por modelos.
-- Ações destrutivas exigem autorização explícita.
-- Resultados de agentes externos são dados não confiáveis.
-- Resultados de ferramentas nunca devem ser tratados automaticamente como instruções executáveis.
-- Credenciais nunca devem entrar em prompts, logs ou descrições de tarefas.
-- Integrações externas devem possuir timeouts e tratamento de falhas.
+NUNCA declare o ULTRON conectado apenas porque a janela abriu.
 
-Decisões de segurança devem existir na implementação, não apenas nos prompts.
+## FASE 5 — DIAGNÓSTICO DE STATUS
 
-# 4. ROTEIRO DE DESENVOLVIMENTO
+Implemente ou corrija um diagnóstico de conexão que diferencie:
 
-O desenvolvimento deverá seguir as fases abaixo.
+- Interface inicializada.
+- Backend inicializado.
+- Orquestrador inicializado.
+- Provider configurado.
+- Provider autenticado.
+- API acessível.
+- Última requisição bem-sucedida.
 
-Não pular fases sem documentar a justificativa técnica.
+Não confunda `ULTRON ONLINE` com conexão comprovada à API.
 
-## FASE 0 — REAVALIAÇÃO DO PROJETO
+O indicador de provider deve exibir o provider e o modelo realmente selecionados.
 
-Antes de implementar qualquer funcionalidade:
+O indicador ONLINE só pode representar conexão com a API quando houver evidência de uma verificação bem-sucedida.
 
-1. Ler todas as instruções do projeto.
-2. Ler `PROJECT_CONTEXT.md`.
-3. Ler `docs/context/CONTEXT_INDEX.md`.
-4. Ler `docs/context/DEVELOPMENT_STATE.md`.
-5. Ler `docs/ARCHITECTURE.md`.
-6. Ler `docs/TESTING.md`.
-7. Ler `docs/INTEGRATION_AUDIT.md`.
-8. Ler os nove documentos de `docs/memory/`.
-9. Inspecionar o repositório e o estado atual do Git.
-10. Verificar a implementação real e identificar componentes concluídos, incompletos ou desatualizados.
+## FASE 6 — INVESTIGAR DASHBOARD
 
-Produzir:
+Investigue:
 
-`docs/roadmap/ULTRON_21_ASSESSMENT.md`
+`Dashboard not running - remote unavailable`
 
-Não presumir que a documentação histórica representa a implementação atual sem verificação.
+Descubra:
 
-## FASE 1 — DOCUMENTAÇÃO E CONTROLE DE VERSÃO
+- Quem gera essa mensagem.
+- Qual endereço está sendo consultado.
+- Se o dashboard é um serviço obrigatório.
+- Se existe uma URL antiga ou incorreta.
+- Se a interface está tentando conectar a uma instância remota desnecessária.
+- Se o backend local já está disponível.
 
-**Objetivo:** estabelecer documentação confiável e versionamento consistente.
+Não tente corrigir esse erro por tentativa e erro. Determine se ele está relacionado à comunicação com o backend principal.
 
-Tarefas:
+## FASE 7 — TESTE REAL DE PONTA A PONTA
 
-- Resolver o versionamento da documentação localizada na raiz.
-- Garantir que a documentação arquitetural seja preservada no Git.
-- Revisar links internos.
-- Estabelecer um índice documental unificado.
-- Atualizar o estado do desenvolvimento.
-- Documentar decisões arquiteturais.
-- Estabelecer convenções de versionamento.
+Depois das correções:
 
-Critérios de conclusão:
+1. Inicialize a interface.
+2. Confirme a inicialização do backend.
+3. Confirme a seleção do provider NVIDIA.
+4. Envie uma mensagem pela interface.
+5. Verifique que `process_text` foi chamado.
+6. Verifique que a requisição chegou à NVIDIA.
+7. Verifique que a resposta retornou.
+8. Verifique que a interface apresentou a resposta real.
+9. Verifique que o histórico foi persistido.
+10. Desconecte temporariamente a API e confirme que a interface apresenta erro, sem gerar uma resposta fictícia.
 
-- Nenhuma documentação importante deve permanecer fora do controle de versão sem justificativa.
-- Todas as referências internas devem ser válidas.
-- A documentação deve representar a implementação real.
-- Registros históricos devem ser preservados.
+Faça uma chamada real somente se a credencial estiver configurada.
 
-## FASE 2 — SISTEMA DE AUTORIZAÇÃO INTERATIVA
+Não exponha credenciais em logs ou relatórios.
 
-**Objetivo:** implementar autorização interativa real para operações sensíveis.
+## FASE 8 — REGRAS DE EXECUÇÃO
 
-Componentes:
+- Não reconstruir a interface.
+- Não substituir componentes visuais.
+- Não criar outro orquestrador.
+- Não criar outro histórico.
+- Não criar outro banco.
+- Não modificar `lain/`.
+- Não modificar `Mark-LVI-main/`.
+- Não apagar funcionalidades existentes.
+- Não repetir comandos que já falharam sem analisar a causa.
+- Não realizar requisições repetidas durante HTTP 429.
+- Não instalar dependências desnecessárias.
+- Não considerar testes com fake providers como comprovação de integração real.
 
-- AuthorizationManager.
-- PendingAction.
-- ApprovalToken.
-- Controle de expiração.
-- Proteção contra reutilização de tokens.
-- Confirmação pela CLI.
-- Confirmação pelo HUD.
-- Integração com auditoria.
+Antes de modificar qualquer arquivo, apresente a causa identificada.
 
-Requisitos:
+Depois, implemente a correção.
 
-- Vincular a autorização à ferramenta e aos argumentos exatos.
-- Utilizar tokens temporários e de uso único.
-- Rejeitar tokens expirados ou reutilizados.
-- Rejeitar argumentos modificados.
-- Separar autorização de execução.
-- Nunca permitir que o modelo aprove suas próprias operações.
+## FASE 9 — RELATÓRIO
 
-Não implementar autorização por voz sem mecanismo confiável de autenticação.
+Atualize:
 
-Critérios de conclusão:
+`docs/qa/BACKEND_CONNECTION_ROOT_CAUSE.md`
 
-- Autorização funcional pela CLI e HUD.
-- Operações destrutivas sem possibilidade de contornar a autorização.
-- Testes de replay, expiração e concorrência.
-- Compatibilidade preservada com os contratos existentes do ToolGateway.
+Inclua:
 
-## FASE 3 — MODEL ROUTER
+- Causa raiz.
+- Caminho real da mensagem.
+- Local onde o mock era selecionado.
+- Implementação NVIDIA.
+- Arquivos modificados.
+- Resultado dos testes.
+- Evidência da chamada real.
+- Problemas restantes.
 
-**Objetivo:** permitir que o ULTRON selecione e coordene diferentes provedores de modelos de IA.
+## CRITÉRIO FINAL
 
-Componentes previstos:
+A tarefa não está concluída até que eu possa abrir o ULTRON, enviar uma mensagem pela interface e receber uma resposta produzida pelo modelo NVIDIA através do backend real.
 
-- ModelRouter.
-- ProviderAdapter.
-- ModelRegistry.
-- ModelCapabilities.
-- ModelSelectionPolicy.
-- FallbackManager.
-- RetryManager.
-- Métricas de provedores.
+Não quero uma simulação, um protótipo ou uma demonstração.
 
-Requisitos:
-
-- Suportar múltiplos provedores.
-- Permitir configuração independente por provedor.
-- Identificar capacidades e limitações de cada modelo.
-- Selecionar modelos conforme o tipo de tarefa.
-- Permitir fallback em caso de indisponibilidade.
-- Implementar timeout e retry com backoff.
-- Preservar o ProviderRegistry existente.
-- Não acoplar o núcleo a um único fornecedor.
-- Não expor credenciais durante o roteamento.
-
-O ModelRouter deve ser uma camada de seleção e encaminhamento, não um segundo orquestrador conversacional.
-
-Critérios de conclusão:
-
-- Pelo menos dois provedores integrados e efetivamente testados.
-- Seleção de modelo validada.
-- Fallback testado.
-- Falhas de provedores isoladas.
-- Configurações e credenciais protegidas.
-
-## FASE 4 — SISTEMA MULTIAGENTE
-
-**Objetivo:** permitir que o ULTRON coordene agentes especializados e delegue tarefas.
-
-Arquitetura prevista:
-
-- AgentOrchestrator.
-- AgentRegistry.
-- AgentExecutor.
-- AgentTask.
-- TaskQueue.
-- AgentCommunication.
-- ResultManager.
-- AgentValidator.
-- ExecutionMonitor.
-
-Agentes iniciais sugeridos:
-
-1. Developer Agent: implementação e manutenção de código.
-2. Research Agent: pesquisa técnica e documentação.
-3. Security Agent: auditoria e análise de segurança.
-4. QA Agent: testes e validação.
-5. Database Agent: arquitetura e gerenciamento de dados.
-6. Architecture Agent: revisão de arquitetura e decisões técnicas.
-
-Requisitos:
-
-- Agentes possuem responsabilidades delimitadas.
-- Cada agente recebe contexto específico para sua tarefa.
-- A comunicação utiliza contratos estruturados.
-- Resultados são enviados ao ULTRON para avaliação.
-- Agentes não podem modificar diretamente a memória canônica sem autorização.
-- Alterações de código devem possuir isolamento e rastreabilidade.
-- Tarefas concorrentes devem evitar conflitos de arquivos.
-- Resultados devem possuir identificação de origem.
-- Falhas de agentes devem ser detectadas e registradas.
-
-A primeira implementação deverá utilizar agentes externos existentes sempre que tecnicamente viável.
-
-Não criar modelos próprios para funcionalidades já oferecidas por ferramentas existentes.
-
-Critérios de conclusão:
-
-- Registro e descoberta de agentes.
-- Delegação funcional.
-- Execução de tarefas.
-- Retorno estruturado de resultados.
-- Validação dos resultados.
-- Tratamento de falhas.
-- Testes de concorrência e isolamento.
-
-## FASE 5 — INTEGRAÇÃO COM AGENTES CLI E MCP
-
-**Objetivo:** conectar o ULTRON a ferramentas e agentes externos.
-
-Integrações prioritárias:
-
-- OpenCode.
-- Claude Code.
-- Outros agentes CLI compatíveis.
-- Servidores MCP.
-
-Requisitos:
-
-- Inspecionar as interfaces reais de cada ferramenta.
-- Não inventar comandos, APIs ou contratos.
-- Utilizar adaptadores independentes.
-- Isolar processos externos.
-- Aplicar limites de execução.
-- Registrar tarefas e resultados.
-- Controlar permissões por integração.
-- Permitir desativar individualmente cada integração.
-
-O ULTRON deverá conseguir encaminhar tarefas especializadas a agentes externos e receber seus resultados sem perder o controle central do fluxo de execução.
-
-Critérios de conclusão:
-
-- Pelo menos uma integração CLI funcional.
-- Pelo menos uma integração MCP funcional.
-- Comunicação validada.
-- Tratamento de timeout e falhas.
-- Permissões verificadas.
-
-## FASE 6 — EVOLUÇÃO DA MEMÓRIA
-
-**Objetivo:** expandir a capacidade de recuperação e relacionamento de informações.
-
-Funcionalidades previstas:
-
-- Embeddings opcionais.
-- Busca semântica.
-- Recuperação híbrida.
-- Relações entre memórias.
-- Memória episódica aprimorada.
-- Métricas de qualidade da recuperação.
-- Criptografia em repouso.
-- Backup e restauração.
-
-Requisitos:
-
-- Preservar o MemoryEngine.
-- Manter compatibilidade com os tipos e escopos existentes.
-- Não tornar embeddings uma dependência obrigatória.
-- Não permitir que consolidação altere silenciosamente fatos.
-- Preservar histórico e rastreabilidade.
-- Manter exclusão autorizada.
-- Garantir isolamento entre escopos.
-
-Critérios de conclusão:
-
-- Recuperação semântica testada.
-- Recuperação lexical preservada.
-- Backup e restauração validados.
-- Criptografia testada.
-- Compatibilidade com memória existente.
-
-## FASE 7 — AUTONOMIA OPERACIONAL
-
-**Objetivo:** permitir que o ULTRON planeje e execute fluxos de trabalho complexos.
-
-Componentes previstos:
-
-- Planner.
-- TaskDecomposer.
-- WorkflowEngine.
-- ExecutionMonitor.
-- Scheduler.
-- RecoveryManager.
-- StateTracker.
-
-Capacidades:
-
-- Receber objetivos complexos.
-- Decompor objetivos em tarefas.
-- Identificar dependências.
-- Distribuir tarefas entre agentes.
-- Acompanhar execução.
-- Avaliar resultados intermediários.
-- Replanejar após falhas.
-- Retomar trabalhos interrompidos.
-- Produzir relatórios de execução.
-
-Requisitos:
-
-- Separar planejamento de execução.
-- Aplicar limites de recursos e tempo.
-- Exigir autorização para ações sensíveis.
-- Registrar decisões e resultados.
-- Evitar loops de execução.
-- Implementar limites de tentativas.
-- Preservar possibilidade de interrupção humana.
-
-Critérios de conclusão:
-
-- Workflows executáveis.
-- Persistência de estado.
-- Recuperação após falhas.
-- Monitoramento de tarefas.
-- Aprovação humana para operações sensíveis.
-
-## FASE 8 — VALIDAÇÃO E ESTABILIZAÇÃO
-
-**Objetivo:** validar a arquitetura completa e preparar uma versão estável.
-
-Executar:
-
-- Testes unitários.
-- Testes de integração.
-- Testes de regressão.
-- Testes de concorrência.
-- Testes de segurança.
-- Testes de falhas de provedores.
-- Testes de agentes externos.
-- Testes de recuperação.
-- Testes de integridade da memória.
-- Testes de compatibilidade das interfaces.
-
-Documentar:
-
-- Arquitetura final.
-- Componentes implementados.
-- Dependências.
-- Limitações.
-- Resultados de testes.
-- Riscos identificados.
-- Decisões arquiteturais.
-- Próximas etapas.
-
-Produzir:
-
-`docs/roadmap/ULTRON_21_FINAL_REPORT.md`
-
-Não declarar uma fase concluída sem evidências verificáveis.
-
-# 5. PADRÃO DE ENGENHARIA MULTIAGENTE
-
-Todos os agentes devem respeitar os seguintes princípios:
-
-1. Especialização: cada agente possui uma responsabilidade definida.
-2. Isolamento: cada tarefa recebe apenas o contexto necessário.
-3. Rastreabilidade: toda tarefa possui identificação e estado.
-4. Comunicação estruturada: resultados seguem contratos definidos.
-5. Validação: nenhum resultado é considerado correto apenas porque foi produzido por uma IA.
-6. Segurança: agentes não possuem permissões ilimitadas.
-7. Recuperação: falhas não devem comprometer o núcleo.
-8. Supervisão: o ULTRON mantém autoridade sobre a coordenação.
-
-Os agentes não devem compartilhar indiscriminadamente seus contextos.
-
-A memória central permanece sob responsabilidade do ULTRON.
-
-# 6. PADRÃO DE DESENVOLVIMENTO
-
-Antes de implementar:
-
-- Inspecionar os arquivos envolvidos.
-- Identificar dependências.
-- Ler os contratos existentes.
-- Verificar os testes relacionados.
-- Identificar possíveis conflitos.
-
-Durante a implementação:
-
-- Preservar compatibilidade.
-- Evitar duplicação de responsabilidades.
-- Criar componentes modulares.
-- Aplicar tipagem quando apropriado.
-- Tratar exceções explicitamente.
-- Registrar operações relevantes.
-- Criar testes para novas funcionalidades.
-
-Depois da implementação:
-
-- Executar testes.
-- Revisar alterações.
-- Verificar regressões.
-- Atualizar documentação.
-- Registrar limitações.
-- Apresentar evidências.
-
-Não realizar commits sem validar o estado do Git e apresentar os resultados.
-
-# 7. GERENCIAMENTO DE TAREFAS
-
-Toda tarefa de engenharia deve possuir:
-
-- Identificador.
-- Objetivo.
-- Descrição.
-- Agente responsável.
-- Dependências.
-- Arquivos envolvidos.
-- Permissões.
-- Estado de execução.
-- Resultado.
-- Evidências de validação.
-
-Estados permitidos:
-
-- pending
-- assigned
-- running
-- blocked
-- review
-- completed
-- failed
-- cancelled
-
-O AgentOrchestrator deve controlar o ciclo de vida das tarefas.
-
-Não considerar uma tarefa concluída apenas porque um agente informou que terminou.
-
-# 8. GERENCIAMENTO DE CONTEXTO
-
-Toda implementação deve consultar a documentação existente antes de tomar decisões arquiteturais.
-
-Fontes prioritárias:
-
-- `PROJECT_CONTEXT.md`
-- `docs/context/CONTEXT_INDEX.md`
-- `docs/context/DEVELOPMENT_STATE.md`
-- `docs/ARCHITECTURE.md`
-- `docs/TESTING.md`
-- `docs/memory/`
-
-O contexto fornecido aos agentes deve ser específico para suas responsabilidades.
-
-Evitar enviar todo o histórico conversacional para todos os agentes.
-
-Os agentes devem receber informações relevantes, atualizadas e verificáveis.
-
-# 9. OBSERVABILIDADE
-
-A arquitetura deverá registrar:
-
-- Identificador da tarefa.
-- Agente responsável.
-- Provedor utilizado.
-- Tempo de execução.
-- Estado da tarefa.
-- Falhas.
-- Tentativas.
-- Resultado da validação.
-- Consumo de recursos quando disponível.
-
-Não registrar credenciais, conteúdo sensível ou dados privados desnecessários.
-
-# 10. CRITÉRIOS GERAIS DE CONCLUSÃO
-
-Uma funcionalidade somente poderá ser declarada concluída quando:
-
-1. A implementação existir.
-2. Os contratos estiverem definidos.
-3. Os testes relevantes forem executados.
-4. Os resultados forem registrados.
-5. As regressões forem verificadas.
-6. A documentação estiver atualizada.
-7. As limitações forem identificadas.
-8. Os riscos de segurança forem avaliados.
-
-Se algum requisito não puder ser validado, declarar explicitamente como incompleto.
-
-# 11. RELATÓRIO OBRIGATÓRIO
-
-Ao finalizar cada fase, produzir um relatório contendo:
-
-A. Objetivo da fase.
-
-B. Auditoria da implementação anterior.
-
-C. Arquitetura implementada.
-
-D. Arquivos criados, modificados e removidos.
-
-E. Dependências adicionadas.
-
-F. Testes executados e resultados.
-
-G. Verificações de segurança.
-
-H. Limitações e funcionalidades pendentes.
-
-I. Próximas etapas recomendadas.
-
-J. Estado do Git e commits, quando existentes.
-
-# 12. FILOSOFIA DE DESENVOLVIMENTO
-
-O ULTRON deve ser desenvolvido como um sistema modular, verificável e extensível.
-
-Prioridades:
-
-1. Integridade arquitetural.
-2. Segurança.
-3. Confiabilidade.
-4. Modularidade.
-5. Observabilidade.
-6. Eficiência.
-7. Autonomia progressiva.
-
-Não confundir autonomia com ausência de controle.
-
-Não confundir quantidade de agentes com inteligência.
-
-Não confundir código gerado com código validado.
-
-Não introduzir complexidade sem benefício arquitetural demonstrável.
-
-**Diretriz central: o ULTRON deve coordenar inteligência, ferramentas e agentes externos sem perder sua própria integridade arquitetural.**
-
----
-
-**ESTADO INICIAL DESTE CICLO**
-
-- Integração original: Etapas 0–10 concluídas conforme relatório anterior.
-- Próximo ciclo: Fase 0 — Reavaliação do projeto.
-- Primeira prioridade: Fase 1 — Documentação e controle de versão.
-- Próxima grande expansão: Model Router e Sistema Multiagente.
-
-Este documento estabelece o roteiro de desenvolvimento, não declara nenhuma das novas fases concluída antecipadamente.
+Quero o sistema conectado.
